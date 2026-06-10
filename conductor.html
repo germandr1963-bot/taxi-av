@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conductor · Taxi-AV</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="app">
+    <div class="marca"><span class="luminoso"></span> TAXI-AV · Conductor</div>
+    <a href="index.html">Inicio</a>
+  </header>
+
+  <main>
+    <!-- ===== Zona de acceso ===== -->
+    <section id="zona-acceso">
+      <h1>Área de conductores</h1>
+      <p class="sub">Regístrate con tu vehículo. Tu cuenta será revisada y aprobada por la administración antes de poder recibir viajes.</p>
+
+      <div class="tarjeta" style="max-width:520px">
+        <div class="pestanas">
+          <button id="pestana-login" class="activa" onclick="mostrarPestana('login')">Iniciar sesión</button>
+          <button id="pestana-registro" onclick="mostrarPestana('registro')">Registrarme</button>
+        </div>
+
+        <!-- Login -->
+        <div id="formulario-login">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="email">
+          <label for="login-password">Contraseña</label>
+          <input id="login-password" type="password" autocomplete="current-password">
+          <button onclick="iniciarSesion()">Entrar</button>
+        </div>
+
+        <!-- Registro -->
+        <div id="formulario-registro" class="oculto">
+          <label for="registro-nombre">Nombre completo</label>
+          <input id="registro-nombre" type="text" autocomplete="name">
+          <label for="registro-email">Email</label>
+          <input id="registro-email" type="email" autocomplete="email">
+          <label for="registro-telefono">Teléfono</label>
+          <input id="registro-telefono" type="tel" autocomplete="tel">
+          <label for="registro-password">Contraseña (mínimo 6 caracteres)</label>
+          <input id="registro-password" type="password" autocomplete="new-password">
+
+          <h2>Tu vehículo</h2>
+          <label for="registro-marca">Marca</label>
+          <input id="registro-marca" type="text" placeholder="Toyota">
+          <label for="registro-modelo">Modelo</label>
+          <input id="registro-modelo" type="text" placeholder="Prius">
+          <label for="registro-matricula">Matrícula</label>
+          <input id="registro-matricula" type="text" placeholder="0000 ABC">
+          <label for="registro-plazas">Plazas para pasajeros</label>
+          <select id="registro-plazas">
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+          <label for="registro-isla">Isla donde operas</label>
+          <select id="registro-isla">
+            <option selected>Gran Canaria</option>
+            <option>Tenerife</option>
+            <option>Lanzarote</option>
+            <option>Fuerteventura</option>
+            <option>La Palma</option>
+            <option>La Gomera</option>
+            <option>El Hierro</option>
+            <option>La Graciosa</option>
+          </select>
+          <button onclick="registrarse()">Enviar solicitud</button>
+        </div>
+
+        <div id="mensaje" class="mensaje"></div>
+      </div>
+    </section>
+
+    <!-- ===== Panel del conductor ===== -->
+    <section id="zona-panel" class="oculto">
+      <h1 id="saludo">Hola</h1>
+      <p class="sub" id="texto-estado"></p>
+
+      <div class="tarjeta" id="ficha-vehiculo"></div>
+
+      <div class="tarjeta">
+        <h2 style="margin-top:0">Recibir viajes</h2>
+        <p>La recepción de solicitudes de viaje estará disponible muy pronto (Fase 2 en construcción).</p>
+      </div>
+
+      <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+    </section>
+  </main>
+
+  <script>
+    function mostrarMensaje(texto, tipo) {
+      const m = document.getElementById('mensaje');
+      m.textContent = texto;
+      m.className = 'mensaje ' + tipo;
+    }
+
+    function mostrarPestana(cual) {
+      document.getElementById('pestana-login').classList.toggle('activa', cual === 'login');
+      document.getElementById('pestana-registro').classList.toggle('activa', cual === 'registro');
+      document.getElementById('formulario-login').classList.toggle('oculto', cual !== 'login');
+      document.getElementById('formulario-registro').classList.toggle('oculto', cual !== 'registro');
+      document.getElementById('mensaje').className = 'mensaje';
+    }
+
+    const TEXTOS_ESTADO = {
+      pendiente: 'Tu solicitud está en revisión. Te avisaremos cuando la administración apruebe tu cuenta.',
+      aprobado: 'Tu cuenta está aprobada. Ya formas parte de la plataforma.',
+      suspendido: 'Tu cuenta está suspendida. Contacta con la administración.'
+    };
+
+    async function mostrarPanel() {
+      const r = await fetch('/api/conductor/me');
+      if (!r.ok) return;
+      const { conductor } = await r.json();
+      document.getElementById('zona-acceso').classList.add('oculto');
+      document.getElementById('zona-panel').classList.remove('oculto');
+      document.getElementById('saludo').textContent = 'Hola, ' + conductor.nombre;
+      document.getElementById('texto-estado').innerHTML =
+        '<span class="etiqueta ' + conductor.estado + '">' + conductor.estado.toUpperCase() + '</span> ' +
+        TEXTOS_ESTADO[conductor.estado];
+      document.getElementById('ficha-vehiculo').innerHTML =
+        '<h2 style="margin-top:0">Tu vehículo</h2>' +
+        '<p><strong>' + (conductor.vehiculo_marca || '—') + ' ' + (conductor.vehiculo_modelo || '') + '</strong><br>' +
+        'Matrícula: ' + (conductor.matricula || '—') + ' · Plazas: ' + conductor.plazas + '<br>' +
+        'Isla: ' + conductor.isla + '</p>';
+    }
+
+    async function registrarse() {
+      const datos = {
+        nombre: document.getElementById('registro-nombre').value,
+        email: document.getElementById('registro-email').value,
+        telefono: document.getElementById('registro-telefono').value,
+        password: document.getElementById('registro-password').value,
+        vehiculo_marca: document.getElementById('registro-marca').value,
+        vehiculo_modelo: document.getElementById('registro-modelo').value,
+        matricula: document.getElementById('registro-matricula').value,
+        plazas: document.getElementById('registro-plazas').value,
+        isla: document.getElementById('registro-isla').value
+      };
+      const r = await fetch('/api/conductor/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) mostrarPanel();
+      else mostrarMensaje(respuesta.error, 'error');
+    }
+
+    async function iniciarSesion() {
+      const datos = {
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+      };
+      const r = await fetch('/api/conductor/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) mostrarPanel();
+      else mostrarMensaje(respuesta.error, 'error');
+    }
+
+    async function cerrarSesion() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
+
+    (async function () {
+      const r = await fetch('/api/sesion');
+      const s = await r.json();
+      if (s.rol === 'conductor') mostrarPanel();
+    })();
+  </script>
+</body>
+</html>

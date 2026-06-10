@@ -1,0 +1,158 @@
+/* ============================================================
+   TAXI-AV · Estilos compartidos
+   Paleta:
+     --atlantico  #0A2A43  azul profundo (cabeceras, texto fuerte)
+     --costa      #10808F  turquesa (enlaces, detalles)
+     --luminoso   #F5B82E  ámbar del luminoso de taxi (acciones)
+     --niebla     #F4F7F9  fondo general
+     --tinta      #1B2B38  texto principal
+   ============================================================ */
+
+:root {
+  --atlantico: #0A2A43;
+  --costa: #10808F;
+  --luminoso: #F5B82E;
+  --niebla: #F4F7F9;
+  --tinta: #1B2B38;
+  --borde: #DCE4EA;
+  --peligro: #C0392B;
+  --exito: #1E8E5A;
+  --radio: 12px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--niebla);
+  color: var(--tinta);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+/* --- Cabecera --- */
+header.app {
+  background: var(--atlantico);
+  color: #fff;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+/* El "luminoso": la firma visual de la marca */
+.luminoso {
+  display: inline-block;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--luminoso);
+  box-shadow: 0 0 10px rgba(245, 184, 46, 0.55);
+}
+header.app a { color: #cfe2ee; text-decoration: none; font-size: 0.9rem; }
+header.app a:hover { color: #fff; }
+
+main { max-width: 920px; margin: 0 auto; padding: 22px 16px 60px; }
+
+h1 { font-size: 1.5rem; color: var(--atlantico); margin-bottom: 6px; }
+h2 { font-size: 1.15rem; color: var(--atlantico); margin: 22px 0 10px; }
+p.sub { color: #5a6c79; margin-bottom: 18px; }
+
+/* --- Tarjetas y formularios --- */
+.tarjeta {
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 4px; color: var(--atlantico); }
+input, select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+input:focus, select:focus { outline: 2px solid var(--costa); border-color: var(--costa); }
+
+button, .boton {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 8px;
+  background: var(--luminoso);
+  color: var(--atlantico);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+button:hover, .boton:hover { filter: brightness(0.95); }
+button.secundario { background: transparent; border: 2px solid var(--costa); color: var(--costa); }
+button.peligro { background: transparent; border: 2px solid var(--peligro); color: var(--peligro); }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--costa); outline-offset: 2px; }
+
+/* --- Mensajes --- */
+.mensaje { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; display: none; }
+.mensaje.error { display: block; background: #FBEAE7; color: var(--peligro); }
+.mensaje.ok { display: block; background: #E6F4EC; color: var(--exito); }
+
+/* --- Pestañas (login / registro) --- */
+.pestanas { display: flex; gap: 8px; margin-bottom: 14px; }
+.pestanas button {
+  margin-top: 0; flex: 1; background: #fff;
+  border: 1px solid var(--borde); color: #5a6c79; font-weight: 600;
+}
+.pestanas button.activa { background: var(--atlantico); color: #fff; border-color: var(--atlantico); }
+
+/* --- Tablas (panel admin) --- */
+.tabla-envoltura { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radio); font-size: 0.88rem; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+th { background: var(--atlantico); color: #fff; font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+
+.etiqueta { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+.etiqueta.pendiente { background: #FDF3DC; color: #8a6d1c; }
+.etiqueta.aprobado { background: #E6F4EC; color: var(--exito); }
+.etiqueta.suspendido { background: #FBEAE7; color: var(--peligro); }
+
+/* --- Cifras del resumen --- */
+.cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.cifra { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; text-align: center; }
+.cifra strong { display: block; font-size: 1.9rem; color: var(--atlantico); }
+.cifra span { font-size: 0.82rem; color: #5a6c79; }
+
+/* --- Portada --- */
+.portada {
+  background: linear-gradient(160deg, var(--atlantico) 0%, #0E3D5E 70%, #10566B 100%);
+  color: #fff;
+  border-radius: var(--radio);
+  padding: 38px 26px;
+  margin-bottom: 20px;
+}
+.portada h1 { color: #fff; font-size: 1.8rem; }
+.portada p { color: #cfe2ee; max-width: 46ch; margin-top: 8px; }
+.accesos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.acceso { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 20px; text-decoration: none; color: var(--tinta); }
+.acceso:hover { border-color: var(--costa); }
+.acceso h3 { color: var(--atlantico); margin-bottom: 4px; }
+.acceso p { font-size: 0.9rem; color: #5a6c79; }
+
+.oculto { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

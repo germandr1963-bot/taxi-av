@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pasajero · Taxi-AV</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="app">
+    <div class="marca"><span class="luminoso"></span> TAXI-AV · Pasajero</div>
+    <a href="index.html">Inicio</a>
+  </header>
+
+  <main>
+    <!-- ===== Zona de acceso (login / registro) ===== -->
+    <section id="zona-acceso">
+      <h1>Bienvenido</h1>
+      <p class="sub">Inicia sesión o crea tu cuenta para pedir un taxi.</p>
+
+      <div class="tarjeta" style="max-width:480px">
+        <div class="pestanas">
+          <button id="pestana-login" class="activa" onclick="mostrarPestana('login')">Iniciar sesión</button>
+          <button id="pestana-registro" onclick="mostrarPestana('registro')">Crear cuenta</button>
+        </div>
+
+        <!-- Login -->
+        <div id="formulario-login">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="email">
+          <label for="login-password">Contraseña</label>
+          <input id="login-password" type="password" autocomplete="current-password">
+          <button onclick="iniciarSesion()">Entrar</button>
+        </div>
+
+        <!-- Registro -->
+        <div id="formulario-registro" class="oculto">
+          <label for="registro-nombre">Nombre completo</label>
+          <input id="registro-nombre" type="text" autocomplete="name">
+          <label for="registro-email">Email</label>
+          <input id="registro-email" type="email" autocomplete="email">
+          <label for="registro-telefono">Teléfono</label>
+          <input id="registro-telefono" type="tel" autocomplete="tel">
+          <label for="registro-password">Contraseña (mínimo 6 caracteres)</label>
+          <input id="registro-password" type="password" autocomplete="new-password">
+          <button onclick="registrarse()">Crear cuenta</button>
+        </div>
+
+        <div id="mensaje" class="mensaje"></div>
+      </div>
+    </section>
+
+    <!-- ===== Panel del pasajero (tras iniciar sesión) ===== -->
+    <section id="zona-panel" class="oculto">
+      <h1 id="saludo">Hola</h1>
+      <p class="sub">Tu cuenta está activa.</p>
+
+      <div class="tarjeta">
+        <h2 style="margin-top:0">Pedir un taxi</h2>
+        <p>El mapa para solicitar tu viaje estará disponible muy pronto (Fase 2 en construcción).</p>
+      </div>
+
+      <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+    </section>
+  </main>
+
+  <script>
+    // ---------- Utilidades ----------
+    function mostrarMensaje(texto, tipo) {
+      const m = document.getElementById('mensaje');
+      m.textContent = texto;
+      m.className = 'mensaje ' + tipo;
+    }
+
+    function mostrarPestana(cual) {
+      document.getElementById('pestana-login').classList.toggle('activa', cual === 'login');
+      document.getElementById('pestana-registro').classList.toggle('activa', cual === 'registro');
+      document.getElementById('formulario-login').classList.toggle('oculto', cual !== 'login');
+      document.getElementById('formulario-registro').classList.toggle('oculto', cual !== 'registro');
+      document.getElementById('mensaje').className = 'mensaje';
+    }
+
+    function mostrarPanel(nombre) {
+      document.getElementById('zona-acceso').classList.add('oculto');
+      document.getElementById('zona-panel').classList.remove('oculto');
+      document.getElementById('saludo').textContent = 'Hola, ' + nombre;
+    }
+
+    // ---------- Acciones ----------
+    async function registrarse() {
+      const datos = {
+        nombre: document.getElementById('registro-nombre').value,
+        email: document.getElementById('registro-email').value,
+        telefono: document.getElementById('registro-telefono').value,
+        password: document.getElementById('registro-password').value
+      };
+      const r = await fetch('/api/pasajero/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) mostrarPanel(respuesta.usuario.nombre);
+      else mostrarMensaje(respuesta.error, 'error');
+    }
+
+    async function iniciarSesion() {
+      const datos = {
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+      };
+      const r = await fetch('/api/pasajero/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) mostrarPanel(respuesta.usuario.nombre);
+      else mostrarMensaje(respuesta.error, 'error');
+    }
+
+    async function cerrarSesion() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
+
+    // Si ya hay sesión de pasajero, mostrar el panel directamente
+    (async function () {
+      const r = await fetch('/api/sesion');
+      const s = await r.json();
+      if (s.rol === 'pasajero') {
+        const yo = await (await fetch('/api/pasajero/me')).json();
+        mostrarPanel(yo.usuario.nombre);
+      }
+    })();
+  </script>
+</body>
+</html>

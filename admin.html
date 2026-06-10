@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administración · Taxi-AV</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="app">
+    <div class="marca"><span class="luminoso"></span> TAXI-AV · Administración</div>
+    <a href="index.html">Inicio</a>
+  </header>
+
+  <main>
+    <!-- ===== Acceso ===== -->
+    <section id="zona-acceso">
+      <h1>Panel de administración</h1>
+      <p class="sub">Acceso restringido.</p>
+      <div class="tarjeta" style="max-width:420px">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" autocomplete="email">
+        <label for="login-password">Contraseña</label>
+        <input id="login-password" type="password" autocomplete="current-password">
+        <button onclick="iniciarSesion()">Entrar</button>
+        <div id="mensaje" class="mensaje"></div>
+      </div>
+    </section>
+
+    <!-- ===== Panel ===== -->
+    <section id="zona-panel" class="oculto">
+      <h1>Panel de administración</h1>
+
+      <h2>Resumen</h2>
+      <div class="cifras" id="cifras"></div>
+
+      <h2>Conductores</h2>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Isla</th>
+              <th>Tipo</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-conductores"></tbody>
+        </table>
+      </div>
+
+      <h2>Pasajeros</h2>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Alta</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="tabla-pasajeros"></tbody>
+        </table>
+      </div>
+
+      <button class="secundario" onclick="cerrarSesion()" style="margin-top:24px">Cerrar sesión</button>
+    </section>
+  </main>
+
+  <script>
+    function mostrarMensaje(texto, tipo) {
+      const m = document.getElementById('mensaje');
+      m.textContent = texto;
+      m.className = 'mensaje ' + tipo;
+    }
+
+    async function iniciarSesion() {
+      const datos = {
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+      };
+      const r = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) cargarPanel();
+      else mostrarMensaje(respuesta.error, 'error');
+    }
+
+    async function cerrarSesion() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
+
+    async function cargarPanel() {
+      document.getElementById('zona-acceso').classList.add('oculto');
+      document.getElementById('zona-panel').classList.remove('oculto');
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros()]);
+    }
+
+    async function cargarResumen() {
+      const r = await fetch('/api/admin/resumen');
+      const d = await r.json();
+      document.getElementById('cifras').innerHTML =
+        '<div class="cifra"><strong>' + d.pasajeros + '</strong><span>Pasajeros</span></div>' +
+        '<div class="cifra"><strong>' + d.conductores.total + '</strong><span>Conductores</span></div>' +
+        '<div class="cifra"><strong>' + d.conductores.pendientes + '</strong><span>Pendientes de aprobar</span></div>' +
+        '<div class="cifra"><strong>' + d.conductores.aprobados + '</strong><span>Aprobados</span></div>' +
+        '<div class="cifra"><strong>' + d.viajes + '</strong><span>Viajes</span></div>';
+    }
+
+    function escapar(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto == null ? '' : String(texto);
+      return div.innerHTML;
+    }
+
+    async function cargarConductores() {
+      const r = await fetch('/api/admin/conductores');
+      const { conductores } = await r.json();
+      const cuerpo = document.getElementById('tabla-conductores');
+      if (conductores.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="7">Todavía no hay conductores registrados.</td></tr>';
+        return;
+      }
+      cuerpo.innerHTML = conductores.map(c => `
+        <tr>
+          <td>${escapar(c.nombre)}</td>
+          <td>${escapar(c.email)}<br>${escapar(c.telefono)}</td>
+          <td>${escapar(c.vehiculo_marca)} ${escapar(c.vehiculo_modelo)}<br>${escapar(c.matricula)} · ${c.plazas} plazas</td>
+          <td>${escapar(c.isla)}</td>
+          <td>
+            <select onchange="cambiarTipo(${c.id}, this.value)">
+              <option value="externo" ${c.tipo === 'externo' ? 'selected' : ''}>Externo</option>
+              <option value="flota" ${c.tipo === 'flota' ? 'selected' : ''}>Flota propia</option>
+            </select>
+          </td>
+          <td><span class="etiqueta ${c.estado}">${c.estado}</span></td>
+          <td>
+            ${c.estado !== 'aprobado' ? `<button style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'aprobado')">Aprobar</button>` : ''}
+            ${c.estado !== 'suspendido' ? `<button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'suspendido')">Suspender</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function cambiarEstado(id, estado) {
+      await fetch('/api/admin/conductores/' + id + '/estado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+      await Promise.all([cargarResumen(), cargarConductores()]);
+    }
+
+    async function cambiarTipo(id, tipo) {
+      await fetch('/api/admin/conductores/' + id + '/tipo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo })
+      });
+    }
+
+    async function cargarPasajeros() {
+      const r = await fetch('/api/admin/pasajeros');
+      const { pasajeros } = await r.json();
+      const cuerpo = document.getElementById('tabla-pasajeros');
+      if (pasajeros.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6">Todavía no hay pasajeros registrados.</td></tr>';
+        return;
+      }
+      cuerpo.innerHTML = pasajeros.map(p => `
+        <tr>
+          <td>${escapar(p.nombre)}</td>
+          <td>${escapar(p.email)}</td>
+          <td>${escapar(p.telefono)}</td>
+          <td>${new Date(p.creado_en).toLocaleDateString('es-ES')}</td>
+          <td><span class="etiqueta ${p.activo ? 'aprobado' : 'suspendido'}">${p.activo ? 'activo' : 'desactivado'}</span></td>
+          <td>
+            <button class="${p.activo ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
+              onclick="cambiarActivo(${p.id}, ${!p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function cambiarActivo(id, activo) {
+      await fetch('/api/admin/pasajeros/' + id + '/activo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo })
+      });
+      await cargarPasajeros();
+    }
+
+    (async function () {
+      const r = await fetch('/api/sesion');
+      const s = await r.json();
+      if (s.rol === 'admin') cargarPanel();
+    })();
+  </script>
+</body>
+</html>
