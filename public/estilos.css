@@ -32,14 +32,17 @@ body {
 
 /* --- Cabecera --- */
 header.app {
-  background: var(--atlantico);
+  background: #000; /* negro: el fondo natural del logo Taxi - Guanche */
   color: #fff;
-  padding: 14px 18px;
+  padding: 10px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-bottom: 3px solid var(--luminoso);
 }
+header.app img.logo { height: 48px; display: block; }
+header.app img.logo-simbolo { height: 42px; display: block; }
 .marca {
   display: flex;
   align-items: center;

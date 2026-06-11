@@ -39,11 +39,15 @@
     #resumen-viaje strong { color: var(--atlantico); }
     #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
+    .icono-taxi { font-size: 26px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .foto-conductor { width: 74px; height: 74px; object-fit: cover; border-radius: 50%; border: 2px solid var(--borde); float: right; margin-left: 10px; }
+    footer.pie { max-width: 920px; margin: 30px auto 0; padding: 18px 16px; border-top: 1px solid var(--borde); font-size: 0.82rem; color: #5a6c79; text-align: center; }
+    footer.pie a { color: var(--costa); text-decoration: none; margin: 0 8px; }
   </style>
 </head>
 <body>
   <header class="app">
-    <div class="marca"><span class="luminoso"></span> TAXI-AV · Pasajero</div>
+    <a href="index.html"><img src="logo-completo.png" alt="Taxi - Guanche" class="logo"></a>
     <a href="index.html">Inicio</a>
   </header>
 
@@ -131,13 +135,22 @@
       <div class="tarjeta oculto" id="tarjeta-viaje">
         <h2 style="margin-top:0">Tu viaje</h2>
         <div id="estado-viaje" style="padding:12px;background:#FDF3DC;border-radius:8px;font-size:1rem"></div>
+        <div id="mapa-viaje" style="height:300px;border-radius:12px;border:1px solid var(--borde);margin-top:12px" class="oculto"></div>
         <div id="detalle-viaje" style="margin-top:12px;font-size:0.95rem"></div>
+        <button class="secundario" onclick="contactarChofer()">💬 Contactar al chofer</button>
         <button class="peligro" onclick="cancelarViaje()" id="boton-cancelar">Cancelar viaje</button>
       </div>
 
       <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
     </section>
   </main>
+
+  <footer class="pie">
+    <a href="conductor.html">Conduce con nosotros</a> ·
+    <a href="empresas.html">Empresas</a> ·
+    <a href="privacidad.html">Política de privacidad</a><br>
+    © 2026 Taxi - Guanche · Todos los derechos reservados
+  </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script>
@@ -463,6 +476,45 @@
     }
 
     let sondeoViaje = null;
+    let mapaViaje = null;          // mapa en vivo del viaje
+    let marcaTaxi = null;          // el icono del taxi que se mueve
+    let marcaRecogida = null;
+    let marcaDestino = null;
+
+    function asegurarMapaViaje(viaje) {
+      document.getElementById('mapa-viaje').classList.remove('oculto');
+      if (!mapaViaje) {
+        mapaViaje = L.map('mapa-viaje', { maxBounds: LIMITES_CANARIAS, minZoom: 8 })
+          .setView([viaje.origen_lat, viaje.origen_lng], 13);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '&copy; OpenStreetMap'
+        }).addTo(mapaViaje);
+        marcaRecogida = L.marker([viaje.origen_lat, viaje.origen_lng]).addTo(mapaViaje).bindPopup('📍 Recogida');
+        marcaDestino = L.marker([viaje.destino_lat, viaje.destino_lng]).addTo(mapaViaje).bindPopup('🏁 Destino');
+        setTimeout(() => mapaViaje.invalidateSize(), 200);
+      }
+
+      // El taxi aparece y se mueve cuando el conductor comparte su posición
+      if (viaje.taxi_lat && viaje.taxi_lng) {
+        if (!marcaTaxi) {
+          marcaTaxi = L.marker([viaje.taxi_lat, viaje.taxi_lng], {
+            icon: L.divIcon({ html: '🚖', className: 'icono-taxi', iconSize: [30, 30] }),
+            zIndexOffset: 1000
+          }).addTo(mapaViaje);
+        } else {
+          marcaTaxi.setLatLng([viaje.taxi_lat, viaje.taxi_lng]);
+        }
+        // Encuadre: taxi + recogida mientras viene; taxi + destino durante el viaje
+        const otroPunto = (viaje.estado === 'en_curso')
+          ? [viaje.destino_lat, viaje.destino_lng]
+          : [viaje.origen_lat, viaje.origen_lng];
+        mapaViaje.fitBounds([[viaje.taxi_lat, viaje.taxi_lng], otroPunto], { padding: [40, 40], maxZoom: 16 });
+      }
+    }
+
+    function contactarChofer() {
+      alert('El chat privado con tu conductor llegará muy pronto. Mientras tanto, espéralo en el punto de recogida: puedes ver dónde está en el mapa. 🚖');
+    }
 
     function mostrarViaje(viaje) {
       document.getElementById('tarjeta-pedir').classList.add('oculto');
@@ -476,11 +528,16 @@
         '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
         '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
 
-      // Si ya hay conductor asignado, mostramos sus datos y los del vehículo
+      // Si ya hay conductor asignado: foto, nombre, número de taxi, vehículo y mapa en vivo
       if (viaje.conductor_nombre) {
-        detalle += '<br><br><strong>🚖 Tu conductor:</strong> ' + viaje.conductor_nombre +
-          '<br><strong>Vehículo:</strong> ' + (viaje.vehiculo_marca || '') + ' ' + (viaje.vehiculo_modelo || '') +
-          ' · Matrícula <strong>' + (viaje.matricula || '—') + '</strong>';
+        detalle += '<br><br>' +
+          (viaje.conductor_foto ? '<img src="' + viaje.conductor_foto + '" alt="Foto del conductor" class="foto-conductor">' : '') +
+          '<strong>🚖 Tu conductor:</strong> ' + viaje.conductor_nombre +
+          '<br><strong>Nº de taxi:</strong> ' + (viaje.numero_taxi || '—') +
+          ' · <strong>Matrícula:</strong> ' + (viaje.matricula || '—') +
+          '<br><strong>Vehículo:</strong> ' + (viaje.vehiculo_marca || '') + ' ' + (viaje.vehiculo_modelo || '');
+        asegurarMapaViaje(viaje);
+        if (!viaje.taxi_lat) detalle += '<br><em>📡 Esperando la señal GPS del taxi…</em>';
       }
       document.getElementById('detalle-viaje').innerHTML = detalle;
       document.getElementById('boton-cancelar').dataset.viajeId = viaje.id;

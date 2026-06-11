@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="app">
-    <div class="marca"><span class="luminoso"></span> TAXI-AV · Conductor</div>
+    <div style="display:flex;align-items:center;gap:10px"><img src="logo-simbolo.png" alt="Taxi - Guanche" class="logo-simbolo"><span style="font-weight:700">CONDUCTOR</span></div>
     <a href="index.html">Inicio</a>
   </header>
 
@@ -51,6 +51,8 @@
           <input id="registro-modelo" type="text" placeholder="Prius">
           <label for="registro-matricula">Matrícula</label>
           <input id="registro-matricula" type="text" placeholder="0000 ABC">
+          <label for="registro-numero-taxi">Número de taxi (licencia)</label>
+          <input id="registro-numero-taxi" type="text" placeholder="Ej.: 154">
           <label for="registro-plazas">Plazas para pasajeros</label>
           <select id="registro-plazas">
             <option value="4" selected>4</option>
@@ -88,6 +90,7 @@
       <div class="tarjeta oculto" id="tarjeta-trabajo">
         <h2 style="margin-top:0">Recibir viajes</h2>
         <button id="boton-disponible" onclick="alternarDisponible()">▶️ Ponerme DISPONIBLE</button>
+        <p style="font-size:0.82rem;color:#5a6c79;margin-top:8px">📡 Mientras estés disponible o en un viaje, tu posición GPS se comparte para que el pasajero vea llegar su taxi. Al desconectarte, deja de compartirse.</p>
         <div id="zona-solicitudes" class="oculto">
           <h2>Solicitudes pendientes</h2>
           <div id="lista-solicitudes" style="font-size:0.95rem">Cargando…</div>
@@ -139,9 +142,12 @@
         TEXTOS_ESTADO[conductor.estado];
       document.getElementById('ficha-vehiculo').innerHTML =
         '<h2 style="margin-top:0">Tu vehículo</h2>' +
+        (conductor.foto ? '<img src="' + conductor.foto + '" alt="Foto de carné" style="width:90px;height:90px;object-fit:cover;border-radius:50%;border:2px solid var(--borde);float:right;margin-left:10px">' : '') +
         '<p><strong>' + (conductor.vehiculo_marca || '—') + ' ' + (conductor.vehiculo_modelo || '') + '</strong><br>' +
-        'Matrícula: ' + (conductor.matricula || '—') + ' · Plazas: ' + conductor.plazas + '<br>' +
-        'Isla: ' + conductor.isla + '</p>';
+        'Matrícula: ' + (conductor.matricula || '—') + ' · Nº de taxi: <strong>' + (conductor.numero_taxi || '—') + '</strong><br>' +
+        'Plazas: ' + conductor.plazas + ' · Isla: ' + conductor.isla + '</p>' +
+        '<label for="archivo-foto" style="margin-top:10px">📷 ' + (conductor.foto ? 'Cambiar' : 'Subir') + ' foto de carné (el pasajero la verá para reconocerte)</label>' +
+        '<input type="file" id="archivo-foto" accept="image/*" onchange="subirFoto(this)">';
 
       // El panel de trabajo solo se activa para conductores aprobados
       if (conductor.estado === 'aprobado') {
@@ -190,7 +196,9 @@
     }
 
     // Cada 7 segundos: ¿tengo un viaje en marcha? Si no, ¿hay solicitudes nuevas?
+    // Además, mientras esté disponible o en viaje, se envía la posición GPS.
     async function refrescarTrabajo() {
+      enviarPosicion();
       const r = await fetch('/api/conductor/viaje-actual');
       const { viaje } = await r.json();
       viajeActivo = viaje;
@@ -238,6 +246,58 @@
       else { alert(respuesta.error); cargarSolicitudes(); }
     }
 
+    // ============================================================
+    // POSICIÓN GPS — el taxi se ve en vivo en el mapa del pasajero.
+    // Solo se envía cuando el conductor está disponible o llevando un viaje.
+    // ============================================================
+    function enviarPosicion() {
+      if (!disponible && !viajeActivo) return; // fuera de servicio: no se rastrea
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        function (posicion) {
+          fetch('/api/conductor/posicion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: posicion.coords.latitude, lng: posicion.coords.longitude })
+          });
+        },
+        function () { /* sin permiso o sin señal: se reintenta en el siguiente ciclo */ },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 6000 }
+      );
+    }
+
+    // ============================================================
+    // FOTO DE CARNÉ — se comprime en el navegador y se guarda
+    // ============================================================
+    function subirFoto(entrada) {
+      const archivo = entrada.files && entrada.files[0];
+      if (!archivo) return;
+      const lector = new FileReader();
+      lector.onload = function (evento) {
+        const imagen = new Image();
+        imagen.onload = async function () {
+          // Reducir a un máximo de 400 px para que pese poco
+          const lado = Math.min(imagen.width, imagen.height);
+          const escala = Math.min(1, 400 / lado);
+          const lienzo = document.createElement('canvas');
+          lienzo.width = Math.round(imagen.width * escala);
+          lienzo.height = Math.round(imagen.height * escala);
+          lienzo.getContext('2d').drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+          const datos = lienzo.toDataURL('image/jpeg', 0.8);
+          const r = await fetch('/api/conductor/foto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ foto: datos })
+          });
+          const respuesta = await r.json();
+          if (respuesta.ok) { alert('Foto guardada. 📷'); mostrarPanel(); }
+          else alert(respuesta.error);
+        };
+        imagen.src = evento.target.result;
+      };
+      lector.readAsDataURL(archivo);
+    }
+
     async function iniciarViaje() {
       if (!viajeActivo) return;
       const r = await fetch('/api/conductor/viaje/' + viajeActivo.id + '/iniciar', { method: 'POST' });
@@ -267,6 +327,7 @@
         vehiculo_marca: document.getElementById('registro-marca').value,
         vehiculo_modelo: document.getElementById('registro-modelo').value,
         matricula: document.getElementById('registro-matricula').value,
+        numero_taxi: document.getElementById('registro-numero-taxi').value,
         plazas: document.getElementById('registro-plazas').value,
         isla: document.getElementById('registro-isla').value
       };
