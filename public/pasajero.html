@@ -138,6 +138,7 @@
       <div class="tarjeta oculto" id="tarjeta-viaje">
         <h2 style="margin-top:0">Tu viaje</h2>
         <div id="estado-viaje" style="padding:12px;background:#FDF3DC;border-radius:8px;font-size:1rem"></div>
+        <div id="eta-viaje" class="oculto" style="margin-top:8px;padding:10px 12px;background:#EAF4F6;border-left:4px solid var(--luminoso);border-radius:6px;font-size:1rem;font-weight:600"></div>
         <div id="mapa-viaje" style="height:300px;border-radius:12px;border:1px solid var(--borde);margin-top:12px" class="oculto"></div>
         <div id="detalle-viaje" style="margin-top:12px;font-size:0.95rem"></div>
         <button class="secundario" onclick="contactarChofer()">💬 Contactar al chofer</button>
@@ -303,6 +304,8 @@
 
       marcador.bindPopup(esOrigen ? '📍 Recogida (arrástrame para ajustar)' : '🏁 Destino (arrástrame para ajustar)').openPopup();
       if (esOrigen) direccionOrigen = direccion; else direccionDestino = direccion;
+      // Acercarse al punto recién marcado para verlo y ajustarlo con comodidad
+      mapa.flyTo([lat, lng], Math.max(mapa.getZoom(), 16), { duration: 0.8 });
       actualizarEstado();
     }
 
@@ -355,7 +358,6 @@
         function (posicion) {
           ponerMarcador('origen', posicion.coords.latitude, posicion.coords.longitude, 'Mi ubicación actual');
           document.getElementById('direccion-origen').value = 'Mi ubicación actual';
-          if (!marcadorDestino) mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 16);
         },
         function () {
           alert('No se pudo obtener tu ubicación. Comprueba que diste permiso al navegador y que el GPS está activado.');
@@ -421,7 +423,10 @@
         lineaRuta = L.geoJSON(ruta.geometry, {
           style: { color: '#10808F', weight: 5, opacity: 0.85 }
         }).addTo(mapa);
-        mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
+        // Primero el usuario ve su punto de cerca; un momento después, el recorrido completo
+        setTimeout(function () {
+          if (lineaRuta) mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
+        }, 1400);
       } catch (e) {
         // Si el servicio de rutas falla, usamos la línea recta como respaldo
         rutaActual = { km: distanciaKm(o.lat, o.lng, d.lat, d.lng), min: null };
@@ -532,12 +537,45 @@
         } else {
           marcaTaxi.setLatLng([viaje.taxi_lat, viaje.taxi_lng]);
         }
+        actualizarCaminoTaxi(viaje);
         // Encuadre: taxi + recogida mientras viene; taxi + destino durante el viaje
         const otroPunto = (viaje.estado === 'en_curso')
           ? [viaje.destino_lat, viaje.destino_lng]
           : [viaje.origen_lat, viaje.origen_lng];
         mapaViaje.fitBounds([[viaje.taxi_lat, viaje.taxi_lng], otroPunto], { padding: [40, 40], maxZoom: 16 });
       }
+    }
+
+    // El camino del TAXI hasta su objetivo (recogida o destino) y el tiempo de llegada.
+    // Solo se recalcula cuando el taxi cambia de posición, para no abusar del servicio de rutas.
+    let lineaTaxi = null;
+    let ultimoCalculoTaxi = '';
+    async function actualizarCaminoTaxi(viaje) {
+      const haciaDestino = (viaje.estado === 'en_curso');
+      const objetivoLat = haciaDestino ? viaje.destino_lat : viaje.origen_lat;
+      const objetivoLng = haciaDestino ? viaje.destino_lng : viaje.origen_lng;
+      const clave = viaje.taxi_lat.toFixed(4) + ',' + viaje.taxi_lng.toFixed(4) + '|' + viaje.estado;
+      if (clave === ultimoCalculoTaxi) return; // el taxi no se ha movido: nada que recalcular
+      ultimoCalculoTaxi = clave;
+      try {
+        const url = 'https://router.project-osrm.org/route/v1/driving/' +
+          viaje.taxi_lng + ',' + viaje.taxi_lat + ';' + objetivoLng + ',' + objetivoLat +
+          '?overview=full&geometries=geojson';
+        const r = await fetch(url);
+        const datos = await r.json();
+        if (!datos.routes || !datos.routes.length) return;
+        const ruta = datos.routes[0];
+        if (lineaTaxi) mapaViaje.removeLayer(lineaTaxi);
+        lineaTaxi = L.geoJSON(ruta.geometry, {
+          style: { color: '#F5B82E', weight: 4, opacity: 0.9, dashArray: '8 6' }
+        }).addTo(mapaViaje);
+        const minutos = Math.max(1, Math.round(ruta.duration / 60));
+        const cartel = document.getElementById('eta-viaje');
+        cartel.classList.remove('oculto');
+        cartel.textContent = haciaDestino
+          ? '🏁 Llegada al destino en ~' + minutos + ' min'
+          : '🕐 Tu taxi llega a la recogida en ~' + minutos + ' min';
+      } catch (e) { /* sin datos esta vez: se reintenta cuando el taxi se mueva */ }
     }
 
     // El recorrido del viaje, dibujado sobre el mapa en vivo
