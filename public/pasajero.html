@@ -11,6 +11,11 @@
     /* Estilos propios de esta página */
     #mapa {
       height: 340px;
+    }
+    @media (max-height: 720px) {
+      #mapa { height: 270px; }
+    }
+    #mapa {
       border-radius: 12px;
       border: 1px solid var(--borde);
       margin-top: 14px;
@@ -253,7 +258,15 @@
     // Lleva la vista suavemente al elemento indicado (clave en móviles)
     function irA(id) {
       const elemento = document.getElementById(id);
-      if (elemento) elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!elemento) return;
+      if (id === 'mapa') {
+        // Posición medida: el mapa queda arriba con un margen justo,
+        // dejando visibles debajo los botones de confirmar (en cualquier móvil)
+        const arriba = elemento.getBoundingClientRect().top + window.scrollY - 85;
+        window.scrollTo({ top: arriba, behavior: 'smooth' });
+      } else {
+        elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
 
     // El usuario da por buena la recogida: pasamos directos al destino
@@ -532,18 +545,31 @@
 
       // El taxi aparece y se mueve cuando el conductor comparte su posición
       if (viaje.taxi_lat && viaje.taxi_lng) {
+        const posTaxi = [viaje.taxi_lat, viaje.taxi_lng];
         if (!marcaTaxi) {
-          marcaTaxi = L.marker([viaje.taxi_lat, viaje.taxi_lng], {
+          marcaTaxi = L.marker(posTaxi, {
             icon: L.divIcon({ html: '🚖', className: 'icono-taxi', iconSize: [22, 22] }),
             zIndexOffset: 1000
           }).addTo(mapaViaje);
-          // Primera señal: centramos en el taxi a una distancia cómoda
-          mapaViaje.setView([viaje.taxi_lat, viaje.taxi_lng], 14);
         } else {
-          marcaTaxi.setLatLng([viaje.taxi_lat, viaje.taxi_lng]);
-          // La cámara acompaña al taxi SIN tocar el zoom: si el cliente amplió
-          // o alejó con los dedos, su elección se respeta
-          mapaViaje.panTo([viaje.taxi_lat, viaje.taxi_lng], { animate: true });
+          marcaTaxi.setLatLng(posTaxi);
+        }
+
+        if (viaje.estado !== 'en_curso') {
+          // EL TAXI VIENE A POR TI: el cliente y su taxi, SIEMPRE visibles juntos.
+          // Según el taxi se acerca, la vista se va cerrando sola.
+          const recogida = [viaje.origen_lat, viaje.origen_lng];
+          const vista = mapaViaje.getBounds().pad(-0.08);
+          if (!vista.contains(posTaxi) || !vista.contains(recogida) || cambioDeEstado(viaje.estado)) {
+            mapaViaje.fitBounds([posTaxi, recogida], { padding: [45, 45], maxZoom: 16 });
+          }
+        } else {
+          // VIAJE EN MARCHA: la cámara acompaña al taxi, respetando el zoom del cliente
+          if (cambioDeEstado(viaje.estado)) {
+            mapaViaje.setView(posTaxi, 14);
+          } else if (!mapaViaje.getBounds().pad(-0.25).contains(posTaxi)) {
+            mapaViaje.panTo(posTaxi, { animate: true });
+          }
         }
         actualizarCaminoTaxi(viaje);
       }
@@ -553,6 +579,11 @@
     // Solo se recalcula cuando el taxi cambia de posición, para no abusar del servicio de rutas.
     let lineaTaxi = null;
     let ultimoCalculoTaxi = '';
+    let estadoVisto = null;
+    function cambioDeEstado(estado) {
+      if (estado !== estadoVisto) { estadoVisto = estado; return true; }
+      return false;
+    }
     async function actualizarCaminoTaxi(viaje) {
       const haciaDestino = (viaje.estado === 'en_curso');
       const objetivoLat = haciaDestino ? viaje.destino_lat : viaje.origen_lat;
