@@ -32,8 +32,8 @@ body {
 
 /* --- Cabecera --- */
 header.app {
-  background: #000; /* negro: el fondo natural del logo Taxi - Guanche */
-  color: #fff;
+  background: #FFFFFF; /* franja clara provisional: el logo ya tiene fondo transparente */
+  color: var(--atlantico);
   padding: 10px 18px;
   display: flex;
   align-items: center;
@@ -60,8 +60,8 @@ header.app img.logo-simbolo { height: 42px; display: block; }
   background: var(--luminoso);
   box-shadow: 0 0 10px rgba(245, 184, 46, 0.55);
 }
-header.app a { color: #cfe2ee; text-decoration: none; font-size: 0.9rem; }
-header.app a:hover { color: #fff; }
+header.app a { color: var(--costa); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+header.app a:hover { color: var(--atlantico); }
 
 main { max-width: 920px; margin: 0 auto; padding: 22px 16px 60px; }
 
