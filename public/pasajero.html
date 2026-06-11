@@ -472,8 +472,10 @@
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
       instruccion('✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".');
-      // Ahora sí: vista panorámica del recorrido completo
-      if (lineaRuta) mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
+      // Vista de un tramo amplio alrededor de la recogida (la isla entera no aporta;
+      // si el cliente quiere ver más, amplía él mismo con los dedos)
+      const o = marcadorOrigen.getLatLng();
+      mapa.flyTo([o.lat, o.lng], 13, { duration: 0.8 });
       irA('mapa');
       document.getElementById('boton-pedir').classList.remove('oculto');
     }
@@ -535,15 +537,15 @@
             icon: L.divIcon({ html: '🚖', className: 'icono-taxi', iconSize: [22, 22] }),
             zIndexOffset: 1000
           }).addTo(mapaViaje);
+          // Primera señal: centramos en el taxi a una distancia cómoda
+          mapaViaje.setView([viaje.taxi_lat, viaje.taxi_lng], 14);
         } else {
           marcaTaxi.setLatLng([viaje.taxi_lat, viaje.taxi_lng]);
+          // La cámara acompaña al taxi SIN tocar el zoom: si el cliente amplió
+          // o alejó con los dedos, su elección se respeta
+          mapaViaje.panTo([viaje.taxi_lat, viaje.taxi_lng], { animate: true });
         }
         actualizarCaminoTaxi(viaje);
-        // Encuadre: taxi + recogida mientras viene; taxi + destino durante el viaje
-        const otroPunto = (viaje.estado === 'en_curso')
-          ? [viaje.destino_lat, viaje.destino_lng]
-          : [viaje.origen_lat, viaje.origen_lng];
-        mapaViaje.fitBounds([[viaje.taxi_lat, viaje.taxi_lng], otroPunto], { padding: [40, 40], maxZoom: 16 });
       }
     }
 
