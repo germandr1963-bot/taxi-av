@@ -39,7 +39,7 @@
     #resumen-viaje strong { color: var(--atlantico); }
     #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
-    .icono-taxi { font-size: 26px; text-align: center; line-height: 30px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .foto-conductor { width: 74px; height: 74px; object-fit: cover; border-radius: 50%; border: 2px solid var(--borde); float: right; margin-left: 10px; }
     footer.pie { max-width: 920px; margin: 30px auto 0; padding: 18px 16px; border-top: 1px solid var(--borde); font-size: 0.82rem; color: #5a6c79; text-align: center; }
     footer.pie a { color: var(--costa); text-decoration: none; margin: 0 8px; }
@@ -122,7 +122,10 @@
 
         <!-- MAPA con la ruta -->
         <div id="mapa"></div>
-        <button class="secundario boton-ubicacion" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="secundario boton-ubicacion" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
+          <button class="boton-ubicacion oculto" id="boton-confirmar-origen" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
+        </div>
 
         <!-- Resumen: recorrido, tiempo y precio inicial -->
         <div id="resumen-viaje"></div>
@@ -246,6 +249,21 @@
       document.getElementById('instruccion-principal').innerHTML = html;
     }
 
+    // Lleva la vista suavemente al elemento indicado (clave en móviles)
+    function irA(id) {
+      const elemento = document.getElementById(id);
+      if (elemento) elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // El usuario da por buena la recogida: pasamos directos al destino
+    function confirmarOrigen() {
+      document.getElementById('boton-confirmar-origen').classList.add('oculto');
+      instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>.');
+      const caja = document.getElementById('direccion-destino');
+      caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      caja.focus();
+    }
+
     function iniciarMapa() {
       if (mapa) return;
       mapa = L.map('mapa', {
@@ -362,7 +380,11 @@
       document.getElementById('resumen-viaje').innerHTML = '';
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
+      document.getElementById('boton-confirmar-origen').classList.add('oculto');
       instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
+      const caja = document.getElementById('direccion-origen');
+      caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      caja.focus();
     }
 
     function distanciaKm(lat1, lng1, lat2, lng2) {
@@ -418,16 +440,21 @@
       html += ' · 💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
       html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
+      irA('resumen-viaje');
     }
 
     function actualizarEstado() {
       if (marcadorOrigen && !marcadorDestino) {
-        instruccion('🏁 Recogida puesta. Ahora indica el <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o toca el mapa. Puedes arrastrar el marcador para ajustarlo.');
+        instruccion('🧐 Comprueba el punto de recogida en el mapa: arrástralo si hace falta y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('resumen-viaje').innerHTML = '';
         document.getElementById('boton-confirmar').classList.add('oculto');
+        document.getElementById('boton-confirmar-origen').classList.remove('oculto');
+        irA('mapa');
       } else if (marcadorOrigen && marcadorDestino) {
         instruccion('✏️ Revisa el recorrido: puedes <strong>arrastrar los marcadores</strong> para afinar. Cuando esté bien, pulsa Confirmar.');
+        document.getElementById('boton-confirmar-origen').classList.add('oculto');
         document.getElementById('boton-confirmar').classList.remove('oculto');
+        irA('mapa');
         calcularRuta();
       }
     }
@@ -491,6 +518,7 @@
         }).addTo(mapaViaje);
         marcaRecogida = L.marker([viaje.origen_lat, viaje.origen_lng]).addTo(mapaViaje).bindPopup('📍 Recogida');
         marcaDestino = L.marker([viaje.destino_lat, viaje.destino_lng]).addTo(mapaViaje).bindPopup('🏁 Destino');
+        dibujarRecorridoViaje(viaje);
         setTimeout(() => mapaViaje.invalidateSize(), 200);
       }
 
@@ -498,7 +526,7 @@
       if (viaje.taxi_lat && viaje.taxi_lng) {
         if (!marcaTaxi) {
           marcaTaxi = L.marker([viaje.taxi_lat, viaje.taxi_lng], {
-            icon: L.divIcon({ html: '🚖', className: 'icono-taxi', iconSize: [30, 30] }),
+            icon: L.divIcon({ html: '🚖', className: 'icono-taxi', iconSize: [22, 22] }),
             zIndexOffset: 1000
           }).addTo(mapaViaje);
         } else {
@@ -510,6 +538,22 @@
           : [viaje.origen_lat, viaje.origen_lng];
         mapaViaje.fitBounds([[viaje.taxi_lat, viaje.taxi_lng], otroPunto], { padding: [40, 40], maxZoom: 16 });
       }
+    }
+
+    // El recorrido del viaje, dibujado sobre el mapa en vivo
+    async function dibujarRecorridoViaje(viaje) {
+      try {
+        const url = 'https://router.project-osrm.org/route/v1/driving/' +
+          viaje.origen_lng + ',' + viaje.origen_lat + ';' + viaje.destino_lng + ',' + viaje.destino_lat +
+          '?overview=full&geometries=geojson';
+        const r = await fetch(url);
+        const datos = await r.json();
+        if (datos.routes && datos.routes.length) {
+          L.geoJSON(datos.routes[0].geometry, {
+            style: { color: '#10808F', weight: 4, opacity: 0.75 }
+          }).addTo(mapaViaje);
+        }
+      } catch (e) { /* sin ruta dibujada: los marcadores siguen guiando */ }
     }
 
     function contactarChofer() {
@@ -580,6 +624,7 @@
         document.getElementById('tarjeta-pedir').classList.remove('oculto');
         document.getElementById('tarjeta-viaje').classList.add('oculto');
         iniciarMapa();
+        document.getElementById('direccion-origen').focus(); // el usuario empieza a escribir sin tocar nada
       }
     }
   </script>
