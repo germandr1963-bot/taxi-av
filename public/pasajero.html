@@ -423,10 +423,8 @@
         lineaRuta = L.geoJSON(ruta.geometry, {
           style: { color: '#10808F', weight: 5, opacity: 0.85 }
         }).addTo(mapa);
-        // Primero el usuario ve su punto de cerca; un momento después, el recorrido completo
-        setTimeout(function () {
-          if (lineaRuta) mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
-        }, 1400);
+        // La vista se queda cerca del punto para que el usuario lo ajuste con calma.
+        // El recorrido completo se mostrará cuando pulse "Confirmar recogida y destino".
       } catch (e) {
         // Si el servicio de rutas falla, usamos la línea recta como respaldo
         rutaActual = { km: distanciaKm(o.lat, o.lng, d.lat, d.lng), min: null };
@@ -474,6 +472,9 @@
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
       instruccion('✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".');
+      // Ahora sí: vista panorámica del recorrido completo
+      if (lineaRuta) mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
+      irA('mapa');
       document.getElementById('boton-pedir').classList.remove('oculto');
     }
 
