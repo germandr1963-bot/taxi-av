@@ -8,33 +8,37 @@
   <!-- Leaflet: librería de mapas (gratuita, con OpenStreetMap) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <style>
-    /* Estilos propios del mapa (solo de esta página) */
+    /* Estilos propios de esta página */
     #mapa {
-      height: 360px;
+      height: 340px;
       border-radius: 12px;
       border: 1px solid var(--borde);
       margin-top: 14px;
     }
-    .buscador { display: flex; gap: 8px; align-items: flex-end; }
-    .buscador > div { flex: 1; }
-    .buscador button { margin-top: 0; padding: 11px 14px; white-space: nowrap; }
-    .resultados { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
-    .resultados li { padding: 10px 12px; font-size: 0.9rem; cursor: pointer; background: #fff; border-bottom: 1px solid var(--borde); }
-    .resultados li:last-child { border-bottom: none; }
-    .resultados li:hover { background: #EAF4F6; }
-    .pasos-viaje { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-    .pasos-viaje button { margin-top: 0; padding: 10px 14px; font-size: 0.9rem; }
-    #instruccion-mapa {
-      margin-top: 14px;
+    #instruccion-principal {
+      margin: 10px 0 18px;
       padding: 10px 12px;
       background: #EAF4F6;
       border-left: 4px solid var(--costa);
       border-radius: 6px;
       font-size: 0.95rem;
     }
-    #resumen-viaje { margin-top: 12px; font-size: 1rem; }
+    .buscador { display: flex; gap: 8px; align-items: flex-end; }
+    .buscador > div { flex: 1; }
+    .buscador button { margin-top: 0; padding: 11px 14px; white-space: nowrap; }
+    .boton-ubicacion {
+      margin-top: 8px !important;
+      padding: 8px 12px !important;
+      font-size: 0.85rem !important;
+    }
+    .resultados { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+    .resultados li { padding: 10px 12px; font-size: 0.9rem; cursor: pointer; background: #fff; border-bottom: 1px solid var(--borde); }
+    .resultados li:last-child { border-bottom: none; }
+    .resultados li:hover { background: #EAF4F6; }
+    #resumen-viaje { margin-top: 12px; font-size: 1rem; line-height: 1.7; }
     #resumen-viaje strong { color: var(--atlantico); }
-    #boton-confirmar { width: 100%; font-size: 1.05rem; }
+    #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
+    .nota-precio { font-size: 0.82rem; color: #5a6c79; }
   </style>
 </head>
 <body>
@@ -84,12 +88,14 @@
     <!-- ===== Panel del pasajero (tras iniciar sesión) ===== -->
     <section id="zona-panel" class="oculto">
       <h1 id="saludo">Hola</h1>
-      <p class="sub">Indica de dónde sales y a dónde vas. Puedes escribir la dirección o tocar el mapa, y ajustar los puntos arrastrándolos.</p>
+
+      <!-- ÚNICO texto de instrucciones de toda la pantalla (se va actualizando) -->
+      <div id="instruccion-principal">📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.</div>
 
       <div class="tarjeta" id="tarjeta-pedir">
         <h2 style="margin-top:0">Pedir un taxi</h2>
 
-        <!-- Búsqueda de ORIGEN -->
+        <!-- ORIGEN: campo + buscar, y justo debajo el botón de ubicación -->
         <div class="buscador">
           <div>
             <label for="direccion-origen">📍 Dirección de recogida</label>
@@ -97,10 +103,11 @@
           </div>
           <button class="secundario" onclick="buscarDireccion('origen')">Buscar</button>
         </div>
+        <button class="secundario boton-ubicacion" onclick="usarMiUbicacion()">📡 Usar mi ubicación como recogida</button>
         <ul id="resultados-origen" class="resultados oculto"></ul>
 
-        <!-- Búsqueda de DESTINO -->
-        <div class="buscador" style="margin-top:10px">
+        <!-- DESTINO: misma lógica -->
+        <div class="buscador" style="margin-top:14px">
           <div>
             <label for="direccion-destino">🏁 Dirección de destino</label>
             <input id="direccion-destino" type="text" placeholder="Ej.: Aeropuerto de Gran Canaria">
@@ -109,19 +116,15 @@
         </div>
         <ul id="resultados-destino" class="resultados oculto"></ul>
 
-        <div id="instruccion-mapa">Escribe una dirección y pulsa Buscar, o toca directamente el mapa: primer toque = recogida, segundo = destino. Arrastra los marcadores para afinar.</div>
-
+        <!-- MAPA con la ruta -->
         <div id="mapa"></div>
+        <button class="secundario boton-ubicacion" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
 
-        <div class="pasos-viaje">
-          <button class="secundario" onclick="usarMiUbicacion()">📡 Usar mi ubicación como origen</button>
-          <button class="secundario" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
-        </div>
-
+        <!-- Resumen: recorrido, tiempo y precio inicial -->
         <div id="resumen-viaje"></div>
 
         <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
-        <button id="boton-pedir" class="oculto" onclick="pedirTaxi()" style="width:100%;font-size:1.05rem">🚖 Pedir taxi ahora</button>
+        <button id="boton-pedir" class="oculto" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
       </div>
 
       <!-- ===== Viaje en marcha (sustituye al formulario cuando hay un viaje activo) ===== -->
@@ -159,7 +162,7 @@
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
       document.getElementById('saludo').textContent = 'Hola, ' + nombre;
-      comprobarViajeActivo(); // ¿hay un viaje en marcha? si no, se muestra el mapa
+      comprobarViajeActivo();
     }
 
     async function registrarse() {
@@ -209,19 +212,26 @@
     })();
 
     // ============================================================
-    // PARTE 2 · EL MAPA — Fase 2, Entrega 1.5
-    // Direcciones buscables + marcadores arrastrables + confirmación.
-    // Todo es editable hasta pulsar "Confirmar recogida y destino".
+    // PARTE 2 · EL MAPA Y LA RUTA — con recorrido real, tiempo y precio
     // ============================================================
     let mapa = null;
     let marcadorOrigen = null;
     let marcadorDestino = null;
+    let lineaRuta = null;            // el dibujo del recorrido en el mapa
+    let rutaActual = null;           // { km, min } de la ruta calculada
     let direccionOrigen = '';
     let direccionDestino = '';
     let confirmado = false;
 
     const LIMITES_CANARIAS = [[27.2, -18.6], [29.6, -13.0]];
     const CENTRO_GRAN_CANARIA = [27.96, -15.59];
+
+    // TARIFA PROVISIONAL (orientativa, ajustable en el futuro desde el panel)
+    const TARIFA = { base: 3.00, porKm: 0.70, porMin: 0.10 };
+
+    function instruccion(html) {
+      document.getElementById('instruccion-principal').innerHTML = html;
+    }
 
     function iniciarMapa() {
       if (mapa) return;
@@ -240,13 +250,11 @@
         if (confirmado) return;
         if (!marcadorOrigen) ponerMarcador('origen', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
         else if (!marcadorDestino) ponerMarcador('destino', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
-        // Si ambos existen, los toques se ignoran: para mover, arrastra los marcadores.
       });
 
       setTimeout(() => mapa.invalidateSize(), 200);
     }
 
-    // Crea o recoloca un marcador ARRASTRABLE
     function ponerMarcador(cual, lat, lng, direccion) {
       const esOrigen = (cual === 'origen');
       let marcador = esOrigen ? marcadorOrigen : marcadorDestino;
@@ -257,8 +265,6 @@
         marcador = L.marker([lat, lng], { draggable: true });
         marcador.addTo(mapa);
         marcador.on('dragend', function () {
-          if (esOrigen) direccionOrigen = direccionOrigen + ' (ajustado en el mapa)';
-          else direccionDestino = direccionDestino + ' (ajustado en el mapa)';
           actualizarEstado();
         });
         if (esOrigen) marcadorOrigen = marcador; else marcadorDestino = marcador;
@@ -269,7 +275,6 @@
       actualizarEstado();
     }
 
-    // Busca la dirección escrita usando Nominatim (OpenStreetMap), limitado a Canarias
     async function buscarDireccion(cual) {
       if (confirmado) return;
       const texto = document.getElementById('direccion-' + cual).value.trim();
@@ -301,7 +306,6 @@
             ponerMarcador(cual, parseFloat(lugar.lat), parseFloat(lugar.lon), lugar.display_name);
             document.getElementById('direccion-' + cual).value = lugar.display_name.split(',').slice(0, 2).join(',');
             lista.classList.add('oculto');
-            mapa.setView([parseFloat(lugar.lat), parseFloat(lugar.lon)], 16);
           };
           lista.appendChild(li);
         });
@@ -320,7 +324,7 @@
         function (posicion) {
           ponerMarcador('origen', posicion.coords.latitude, posicion.coords.longitude, 'Mi ubicación actual');
           document.getElementById('direccion-origen').value = 'Mi ubicación actual';
-          mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 16);
+          if (!marcadorDestino) mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 16);
         },
         function () {
           alert('No se pudo obtener tu ubicación. Comprueba que diste permiso al navegador y que el GPS está activado.');
@@ -331,6 +335,8 @@
     function reiniciarSeleccion() {
       if (marcadorOrigen) { mapa.removeLayer(marcadorOrigen); marcadorOrigen = null; }
       if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
+      if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
+      rutaActual = null;
       direccionOrigen = '';
       direccionDestino = '';
       confirmado = false;
@@ -343,8 +349,7 @@
       document.getElementById('resumen-viaje').innerHTML = '';
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
-      document.getElementById('instruccion-mapa').innerHTML =
-        'Escribe una dirección y pulsa Buscar, o toca directamente el mapa: primer toque = recogida, segundo = destino. Arrastra los marcadores para afinar.';
+      instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
     }
 
     function distanciaKm(lat1, lng1, lat2, lng2) {
@@ -357,27 +362,63 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    // Actualiza instrucciones, distancia y botón de confirmar según lo que haya
-    function actualizarEstado() {
-      const instruccion = document.getElementById('instruccion-mapa');
-      const resumen = document.getElementById('resumen-viaje');
-      const botonConfirmar = document.getElementById('boton-confirmar');
+    function precioEstimado(km, min) {
+      return TARIFA.base + km * TARIFA.porKm + min * TARIFA.porMin;
+    }
 
+    // Calcula la ruta REAL por carretera con OSRM (gratuito, OpenStreetMap)
+    async function calcularRuta() {
+      const o = marcadorOrigen.getLatLng();
+      const d = marcadorDestino.getLatLng();
+      document.getElementById('resumen-viaje').innerHTML = '🛣️ Calculando recorrido…';
+
+      try {
+        const url = 'https://router.project-osrm.org/route/v1/driving/' +
+          o.lng + ',' + o.lat + ';' + d.lng + ',' + d.lat + '?overview=full&geometries=geojson';
+        const r = await fetch(url);
+        const datos = await r.json();
+        if (!datos.routes || !datos.routes.length) throw new Error('sin ruta');
+
+        const ruta = datos.routes[0];
+        rutaActual = { km: ruta.distance / 1000, min: ruta.duration / 60 };
+
+        if (lineaRuta) mapa.removeLayer(lineaRuta);
+        lineaRuta = L.geoJSON(ruta.geometry, {
+          style: { color: '#10808F', weight: 5, opacity: 0.85 }
+        }).addTo(mapa);
+        mapa.fitBounds(lineaRuta.getBounds(), { padding: [30, 30] });
+      } catch (e) {
+        // Si el servicio de rutas falla, usamos la línea recta como respaldo
+        rutaActual = { km: distanciaKm(o.lat, o.lng, d.lat, d.lng), min: null };
+        if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
+      }
+      pintarResumen();
+    }
+
+    function pintarResumen() {
+      if (!rutaActual) return;
+      const km = rutaActual.km;
+      const min = rutaActual.min;
+      const precio = precioEstimado(km, min || 0);
+      let html = '🛣️ Recorrido: <strong>' + km.toFixed(1) + ' km</strong>';
+      if (min !== null) html += ' · ⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
+      html += ' · 💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
+      html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
+      document.getElementById('resumen-viaje').innerHTML = html;
+    }
+
+    function actualizarEstado() {
       if (marcadorOrigen && !marcadorDestino) {
-        instruccion.innerHTML = '🏁 Recogida puesta. Ahora indica el <strong>DESTINO</strong> (búscalo o toca el mapa). Puedes arrastrar el marcador para ajustarlo.';
-        resumen.innerHTML = '';
-        botonConfirmar.classList.add('oculto');
+        instruccion('🏁 Recogida puesta. Ahora indica el <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o toca el mapa. Puedes arrastrar el marcador para ajustarlo.');
+        document.getElementById('resumen-viaje').innerHTML = '';
+        document.getElementById('boton-confirmar').classList.add('oculto');
       } else if (marcadorOrigen && marcadorDestino) {
-        const o = marcadorOrigen.getLatLng();
-        const d = marcadorDestino.getLatLng();
-        const km = distanciaKm(o.lat, o.lng, d.lat, d.lng);
-        instruccion.innerHTML = '✏️ Revisa los dos puntos: puedes <strong>arrastrarlos</strong> para afinar. Cuando estén bien, pulsa Confirmar.';
-        resumen.innerHTML = 'Distancia en línea recta: <strong>' + km.toFixed(1) + ' km</strong> (aproximada)';
-        botonConfirmar.classList.remove('oculto');
+        instruccion('✏️ Revisa el recorrido: puedes <strong>arrastrar los marcadores</strong> para afinar. Cuando esté bien, pulsa Confirmar.');
+        document.getElementById('boton-confirmar').classList.remove('oculto');
+        calcularRuta();
       }
     }
 
-    // Paso final: fija ambos puntos (deja de ser editable)
     function confirmarPuntos() {
       confirmado = true;
       marcadorOrigen.dragging.disable();
@@ -387,20 +428,12 @@
       document.getElementById('direccion-origen').disabled = true;
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
-
-      const o = marcadorOrigen.getLatLng();
-      const d = marcadorDestino.getLatLng();
-      const km = distanciaKm(o.lat, o.lng, d.lat, d.lng);
-      document.getElementById('instruccion-mapa').innerHTML =
-        '✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".';
-      document.getElementById('resumen-viaje').innerHTML =
-        '<strong>Viaje preparado</strong> · ' + km.toFixed(1) + ' km en línea recta (aprox.)';
+      instruccion('✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".');
       document.getElementById('boton-pedir').classList.remove('oculto');
     }
 
     // ============================================================
-    // PARTE 3 · PEDIR EL TAXI — Fase 2, Entrega 2
-    // El viaje se guarda en la base de datos y queda "solicitado".
+    // PARTE 3 · PEDIR EL TAXI — el viaje se guarda en la base de datos
     // ============================================================
     const TEXTOS_ESTADO_VIAJE = {
       solicitado: '🔎 Buscando un conductor disponible…',
@@ -432,6 +465,7 @@
     function mostrarViaje(viaje) {
       document.getElementById('tarjeta-pedir').classList.add('oculto');
       document.getElementById('tarjeta-viaje').classList.remove('oculto');
+      instruccion('🚕 Tienes un viaje en marcha. Aquí verás su estado en todo momento.');
       document.getElementById('estado-viaje').textContent =
         TEXTOS_ESTADO_VIAJE[viaje.estado] || viaje.estado;
       document.getElementById('detalle-viaje').innerHTML =
@@ -450,7 +484,6 @@
       else alert(respuesta.error);
     }
 
-    // Al entrar: si hay un viaje activo se muestra; si no, se muestra el mapa
     async function comprobarViajeActivo() {
       const r = await fetch('/api/pasajero/viaje-actual');
       const { viaje } = await r.json();
