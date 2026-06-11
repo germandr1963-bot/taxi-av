@@ -86,7 +86,7 @@
       <h1 id="saludo">Hola</h1>
       <p class="sub">Indica de dónde sales y a dónde vas. Puedes escribir la dirección o tocar el mapa, y ajustar los puntos arrastrándolos.</p>
 
-      <div class="tarjeta">
+      <div class="tarjeta" id="tarjeta-pedir">
         <h2 style="margin-top:0">Pedir un taxi</h2>
 
         <!-- Búsqueda de ORIGEN -->
@@ -121,6 +121,15 @@
         <div id="resumen-viaje"></div>
 
         <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
+        <button id="boton-pedir" class="oculto" onclick="pedirTaxi()" style="width:100%;font-size:1.05rem">🚖 Pedir taxi ahora</button>
+      </div>
+
+      <!-- ===== Viaje en marcha (sustituye al formulario cuando hay un viaje activo) ===== -->
+      <div class="tarjeta oculto" id="tarjeta-viaje">
+        <h2 style="margin-top:0">Tu viaje</h2>
+        <div id="estado-viaje" style="padding:12px;background:#FDF3DC;border-radius:8px;font-size:1rem"></div>
+        <div id="detalle-viaje" style="margin-top:12px;font-size:0.95rem"></div>
+        <button class="peligro" onclick="cancelarViaje()" id="boton-cancelar">Cancelar viaje</button>
       </div>
 
       <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -150,7 +159,7 @@
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
       document.getElementById('saludo').textContent = 'Hola, ' + nombre;
-      iniciarMapa();
+      comprobarViajeActivo(); // ¿hay un viaje en marcha? si no, se muestra el mapa
     }
 
     async function registrarse() {
@@ -333,6 +342,7 @@
       document.getElementById('resultados-destino').classList.add('oculto');
       document.getElementById('resumen-viaje').innerHTML = '';
       document.getElementById('boton-confirmar').classList.add('oculto');
+      document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('instruccion-mapa').innerHTML =
         'Escribe una dirección y pulsa Buscar, o toca directamente el mapa: primer toque = recogida, segundo = destino. Arrastra los marcadores para afinar.';
     }
@@ -384,8 +394,73 @@
       document.getElementById('instruccion-mapa').innerHTML =
         '✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".';
       document.getElementById('resumen-viaje').innerHTML =
-        '<strong>Viaje preparado</strong> · ' + km.toFixed(1) + ' km en línea recta (aprox.)<br>' +
-        '<em>El botón para pedir el taxi llegará en la próxima actualización.</em>';
+        '<strong>Viaje preparado</strong> · ' + km.toFixed(1) + ' km en línea recta (aprox.)';
+      document.getElementById('boton-pedir').classList.remove('oculto');
+    }
+
+    // ============================================================
+    // PARTE 3 · PEDIR EL TAXI — Fase 2, Entrega 2
+    // El viaje se guarda en la base de datos y queda "solicitado".
+    // ============================================================
+    const TEXTOS_ESTADO_VIAJE = {
+      solicitado: '🔎 Buscando un conductor disponible…',
+      asignado: '🚖 ¡Conductor asignado! Está en camino.',
+      en_curso: '🛣️ Viaje en curso. ¡Buen camino!'
+    };
+
+    async function pedirTaxi() {
+      const o = marcadorOrigen.getLatLng();
+      const d = marcadorDestino.getLatLng();
+      const datos = {
+        origen_lat: o.lat,
+        origen_lng: o.lng,
+        origen_direccion: direccionOrigen,
+        destino_lat: d.lat,
+        destino_lng: d.lng,
+        destino_direccion: direccionDestino
+      };
+      const r = await fetch('/api/pasajero/viaje', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) mostrarViaje(respuesta.viaje);
+      else alert(respuesta.error);
+    }
+
+    function mostrarViaje(viaje) {
+      document.getElementById('tarjeta-pedir').classList.add('oculto');
+      document.getElementById('tarjeta-viaje').classList.remove('oculto');
+      document.getElementById('estado-viaje').textContent =
+        TEXTOS_ESTADO_VIAJE[viaje.estado] || viaje.estado;
+      document.getElementById('detalle-viaje').innerHTML =
+        '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
+        '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
+        '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
+      document.getElementById('boton-cancelar').dataset.viajeId = viaje.id;
+    }
+
+    async function cancelarViaje() {
+      const id = document.getElementById('boton-cancelar').dataset.viajeId;
+      if (!confirm('¿Seguro que quieres cancelar este viaje?')) return;
+      const r = await fetch('/api/pasajero/viaje/' + id + '/cancelar', { method: 'POST' });
+      const respuesta = await r.json();
+      if (respuesta.ok) location.reload();
+      else alert(respuesta.error);
+    }
+
+    // Al entrar: si hay un viaje activo se muestra; si no, se muestra el mapa
+    async function comprobarViajeActivo() {
+      const r = await fetch('/api/pasajero/viaje-actual');
+      const { viaje } = await r.json();
+      if (viaje) {
+        mostrarViaje(viaje);
+      } else {
+        document.getElementById('tarjeta-pedir').classList.remove('oculto');
+        document.getElementById('tarjeta-viaje').classList.add('oculto');
+        iniciarMapa();
+      }
     }
   </script>
 </body>
