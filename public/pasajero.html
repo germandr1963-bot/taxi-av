@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pasajero · Taxi-AV</title>
   <link rel="stylesheet" href="estilos.css">
+  <!-- Leaflet: librería de mapas (gratuita, con OpenStreetMap) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    /* Estilos propios del mapa (solo de esta página) */
+    #mapa {
+      height: 380px;
+      border-radius: 12px;
+      border: 1px solid var(--borde);
+      margin-top: 10px;
+    }
+    .pasos-viaje { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .pasos-viaje button { margin-top: 0; padding: 10px 14px; font-size: 0.9rem; }
+    #instruccion-mapa {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #EAF4F6;
+      border-left: 4px solid var(--costa);
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    #resumen-viaje { margin-top: 12px; font-size: 1rem; }
+    #resumen-viaje strong { color: var(--atlantico); }
+  </style>
 </head>
 <body>
   <header class="app">
@@ -53,19 +76,32 @@
     <!-- ===== Panel del pasajero (tras iniciar sesión) ===== -->
     <section id="zona-panel" class="oculto">
       <h1 id="saludo">Hola</h1>
-      <p class="sub">Tu cuenta está activa.</p>
+      <p class="sub">Marca en el mapa de dónde sales y a dónde vas.</p>
 
       <div class="tarjeta">
         <h2 style="margin-top:0">Pedir un taxi</h2>
-        <p>El mapa para solicitar tu viaje estará disponible muy pronto (Fase 2 en construcción).</p>
+
+        <div id="instruccion-mapa">📍 Toca en el mapa el punto de <strong>RECOGIDA</strong> (o usa el botón de tu ubicación).</div>
+
+        <div id="mapa"></div>
+
+        <div class="pasos-viaje">
+          <button class="secundario" onclick="usarMiUbicacion()">📡 Usar mi ubicación como origen</button>
+          <button class="secundario" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
+        </div>
+
+        <div id="resumen-viaje"></div>
       </div>
 
       <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
     </section>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script>
-    // ---------- Utilidades ----------
+    // ============================================================
+    // PARTE 1 · ACCESO (login / registro) — sin cambios de la Fase 1
+    // ============================================================
     function mostrarMensaje(texto, tipo) {
       const m = document.getElementById('mensaje');
       m.textContent = texto;
@@ -84,9 +120,9 @@
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
       document.getElementById('saludo').textContent = 'Hola, ' + nombre;
+      iniciarMapa(); // ← novedad de la Fase 2: el mapa arranca al entrar
     }
 
-    // ---------- Acciones ----------
     async function registrarse() {
       const datos = {
         nombre: document.getElementById('registro-nombre').value,
@@ -124,7 +160,6 @@
       location.reload();
     }
 
-    // Si ya hay sesión de pasajero, mostrar el panel directamente
     (async function () {
       const r = await fetch('/api/sesion');
       const s = await r.json();
@@ -133,6 +168,109 @@
         mostrarPanel(yo.usuario.nombre);
       }
     })();
+
+    // ============================================================
+    // PARTE 2 · EL MAPA — Fase 2, Entrega 1
+    // El pasajero marca origen y destino y ve la distancia.
+    // (La confirmación del viaje llega en la Entrega 2.)
+    // ============================================================
+    let mapa = null;
+    let marcadorOrigen = null;
+    let marcadorDestino = null;
+    let paso = 'origen'; // origen → destino → listo
+
+    // Límites del archipiélago canario (para no perderse por el mapa mundial)
+    const LIMITES_CANARIAS = [[27.2, -18.6], [29.6, -13.0]];
+    const CENTRO_GRAN_CANARIA = [27.96, -15.59];
+
+    function iniciarMapa() {
+      if (mapa) return; // evitar crearlo dos veces
+      mapa = L.map('mapa', {
+        center: CENTRO_GRAN_CANARIA,
+        zoom: 10,
+        maxBounds: LIMITES_CANARIAS,
+        minZoom: 8
+      });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(mapa);
+
+      mapa.on('click', function (e) {
+        ponerPunto(e.latlng.lat, e.latlng.lng);
+      });
+
+      // Pequeño truco: a veces el mapa se dibuja antes de ser visible
+      setTimeout(() => mapa.invalidateSize(), 200);
+    }
+
+    function ponerPunto(lat, lng) {
+      if (paso === 'origen') {
+        if (marcadorOrigen) mapa.removeLayer(marcadorOrigen);
+        marcadorOrigen = L.marker([lat, lng]).addTo(mapa)
+          .bindPopup('Recogida').openPopup();
+        paso = 'destino';
+        document.getElementById('instruccion-mapa').innerHTML =
+          '🏁 Ahora toca el punto de <strong>DESTINO</strong>.';
+      } else if (paso === 'destino') {
+        if (marcadorDestino) mapa.removeLayer(marcadorDestino);
+        marcadorDestino = L.marker([lat, lng]).addTo(mapa)
+          .bindPopup('Destino').openPopup();
+        paso = 'listo';
+        document.getElementById('instruccion-mapa').innerHTML =
+          '✅ Ruta marcada. Si quieres cambiarla, pulsa "Empezar de nuevo".';
+        mostrarResumen();
+      }
+      // Si paso === 'listo', los toques en el mapa se ignoran hasta reiniciar.
+    }
+
+    function usarMiUbicacion() {
+      if (!navigator.geolocation) {
+        alert('Tu navegador no permite obtener la ubicación.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        function (posicion) {
+          paso = 'origen'; // la ubicación siempre fija el ORIGEN
+          if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
+          document.getElementById('resumen-viaje').innerHTML = '';
+          ponerPunto(posicion.coords.latitude, posicion.coords.longitude);
+          mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 15);
+        },
+        function () {
+          alert('No se pudo obtener tu ubicación. Comprueba que diste permiso al navegador.');
+        }
+      );
+    }
+
+    function reiniciarSeleccion() {
+      if (marcadorOrigen) { mapa.removeLayer(marcadorOrigen); marcadorOrigen = null; }
+      if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
+      paso = 'origen';
+      document.getElementById('resumen-viaje').innerHTML = '';
+      document.getElementById('instruccion-mapa').innerHTML =
+        '📍 Toca en el mapa el punto de <strong>RECOGIDA</strong> (o usa el botón de tu ubicación).';
+    }
+
+    // Distancia en línea recta entre dos puntos (fórmula de Haversine)
+    function distanciaKm(lat1, lng1, lat2, lng2) {
+      const R = 6371; // radio de la Tierra en km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function mostrarResumen() {
+      const o = marcadorOrigen.getLatLng();
+      const d = marcadorDestino.getLatLng();
+      const km = distanciaKm(o.lat, o.lng, d.lat, d.lng);
+      document.getElementById('resumen-viaje').innerHTML =
+        'Distancia en línea recta: <strong>' + km.toFixed(1) + ' km</strong> (aproximada)<br>' +
+        '<em>El botón para confirmar el viaje llegará en la próxima actualización.</em>';
+    }
   </script>
 </body>
 </html>
