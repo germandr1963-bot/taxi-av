@@ -84,9 +84,22 @@
 
       <div class="tarjeta" id="ficha-vehiculo"></div>
 
-      <div class="tarjeta">
+      <!-- Panel de trabajo (solo para conductores aprobados) -->
+      <div class="tarjeta oculto" id="tarjeta-trabajo">
         <h2 style="margin-top:0">Recibir viajes</h2>
-        <p>La recepción de solicitudes de viaje estará disponible muy pronto (Fase 2 en construcción).</p>
+        <button id="boton-disponible" onclick="alternarDisponible()">▶️ Ponerme DISPONIBLE</button>
+        <div id="zona-solicitudes" class="oculto">
+          <h2>Solicitudes pendientes</h2>
+          <div id="lista-solicitudes" style="font-size:0.95rem">Cargando…</div>
+        </div>
+      </div>
+
+      <!-- Viaje activo del conductor -->
+      <div class="tarjeta oculto" id="tarjeta-viaje-conductor">
+        <h2 style="margin-top:0">Tu viaje en marcha</h2>
+        <div id="detalle-viaje-conductor" style="font-size:0.95rem;line-height:1.7"></div>
+        <button id="boton-iniciar" onclick="iniciarViaje()">🚖 He recogido al pasajero (iniciar viaje)</button>
+        <button id="boton-finalizar" class="oculto" onclick="finalizarViaje()">🏁 Viaje terminado</button>
       </div>
 
       <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -129,6 +142,120 @@
         '<p><strong>' + (conductor.vehiculo_marca || '—') + ' ' + (conductor.vehiculo_modelo || '') + '</strong><br>' +
         'Matrícula: ' + (conductor.matricula || '—') + ' · Plazas: ' + conductor.plazas + '<br>' +
         'Isla: ' + conductor.isla + '</p>';
+
+      // El panel de trabajo solo se activa para conductores aprobados
+      if (conductor.estado === 'aprobado') {
+        document.getElementById('tarjeta-trabajo').classList.remove('oculto');
+        disponible = conductor.disponible;
+        pintarBotonDisponible();
+        refrescarTrabajo();
+        if (!sondeo) sondeo = setInterval(refrescarTrabajo, 7000); // se actualiza solo cada 7 segundos
+      }
+    }
+
+    // ============================================================
+    // TRABAJO DEL CONDUCTOR — Fase 2, Entrega 3
+    // ============================================================
+    let disponible = false;
+    let sondeo = null;
+    let viajeActivo = null;
+
+    function pintarBotonDisponible() {
+      const boton = document.getElementById('boton-disponible');
+      if (disponible) {
+        boton.textContent = '⏸️ Dejar de estar disponible';
+        boton.className = 'peligro';
+        document.getElementById('zona-solicitudes').classList.remove('oculto');
+      } else {
+        boton.textContent = '▶️ Ponerme DISPONIBLE';
+        boton.className = '';
+        document.getElementById('zona-solicitudes').classList.add('oculto');
+      }
+    }
+
+    async function alternarDisponible() {
+      const r = await fetch('/api/conductor/disponible', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disponible: !disponible })
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        disponible = respuesta.disponible;
+        pintarBotonDisponible();
+        refrescarTrabajo();
+      } else {
+        alert(respuesta.error);
+      }
+    }
+
+    // Cada 7 segundos: ¿tengo un viaje en marcha? Si no, ¿hay solicitudes nuevas?
+    async function refrescarTrabajo() {
+      const r = await fetch('/api/conductor/viaje-actual');
+      const { viaje } = await r.json();
+      viajeActivo = viaje;
+
+      if (viaje) {
+        document.getElementById('tarjeta-trabajo').classList.add('oculto');
+        document.getElementById('tarjeta-viaje-conductor').classList.remove('oculto');
+        document.getElementById('detalle-viaje-conductor').innerHTML =
+          '<strong>Pasajero:</strong> ' + viaje.pasajero_nombre + '<br>' +
+          '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
+          '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
+          '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
+        document.getElementById('boton-iniciar').classList.toggle('oculto', viaje.estado !== 'asignado');
+        document.getElementById('boton-finalizar').classList.toggle('oculto', viaje.estado !== 'en_curso');
+      } else {
+        document.getElementById('tarjeta-viaje-conductor').classList.add('oculto');
+        document.getElementById('tarjeta-trabajo').classList.remove('oculto');
+        if (disponible) cargarSolicitudes();
+      }
+    }
+
+    async function cargarSolicitudes() {
+      const r = await fetch('/api/conductor/solicitudes');
+      if (!r.ok) return;
+      const { solicitudes } = await r.json();
+      const zona = document.getElementById('lista-solicitudes');
+      if (solicitudes.length === 0) {
+        zona.innerHTML = 'No hay solicitudes pendientes ahora mismo. Esta lista se actualiza sola.';
+        return;
+      }
+      zona.innerHTML = solicitudes.map(s =>
+        '<div style="border:1px solid var(--borde);border-radius:8px;padding:12px;margin-bottom:10px">' +
+        '<strong>' + s.pasajero_nombre + '</strong> · ' + parseFloat(s.distancia_km).toFixed(1) + ' km<br>' +
+        '📍 ' + (s.origen_direccion || 'punto en el mapa') + '<br>' +
+        '🏁 ' + (s.destino_direccion || 'punto en el mapa') + '<br>' +
+        '<button style="margin-top:8px;padding:8px 16px" onclick="aceptarViaje(' + s.id + ')">✅ Aceptar este viaje</button>' +
+        '</div>'
+      ).join('');
+    }
+
+    async function aceptarViaje(id) {
+      const r = await fetch('/api/conductor/viaje/' + id + '/aceptar', { method: 'POST' });
+      const respuesta = await r.json();
+      if (respuesta.ok) refrescarTrabajo();
+      else { alert(respuesta.error); cargarSolicitudes(); }
+    }
+
+    async function iniciarViaje() {
+      if (!viajeActivo) return;
+      const r = await fetch('/api/conductor/viaje/' + viajeActivo.id + '/iniciar', { method: 'POST' });
+      const respuesta = await r.json();
+      if (respuesta.ok) refrescarTrabajo();
+      else alert(respuesta.error);
+    }
+
+    async function finalizarViaje() {
+      if (!viajeActivo) return;
+      const r = await fetch('/api/conductor/viaje/' + viajeActivo.id + '/finalizar', { method: 'POST' });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        alert('¡Viaje completado! Buen trabajo. 🏁');
+        refrescarTrabajo();
+      } else {
+        alert(respuesta.error);
+      }
     }
 
     async function registrarse() {
