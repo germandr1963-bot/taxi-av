@@ -462,17 +462,47 @@
       else alert(respuesta.error);
     }
 
+    let sondeoViaje = null;
+
     function mostrarViaje(viaje) {
       document.getElementById('tarjeta-pedir').classList.add('oculto');
       document.getElementById('tarjeta-viaje').classList.remove('oculto');
-      instruccion('🚕 Tienes un viaje en marcha. Aquí verás su estado en todo momento.');
+      instruccion('🚕 Tienes un viaje en marcha. Esta pantalla se actualiza sola.');
       document.getElementById('estado-viaje').textContent =
         TEXTOS_ESTADO_VIAJE[viaje.estado] || viaje.estado;
-      document.getElementById('detalle-viaje').innerHTML =
+
+      let detalle =
         '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
         '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
         '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
+
+      // Si ya hay conductor asignado, mostramos sus datos y los del vehículo
+      if (viaje.conductor_nombre) {
+        detalle += '<br><br><strong>🚖 Tu conductor:</strong> ' + viaje.conductor_nombre +
+          '<br><strong>Vehículo:</strong> ' + (viaje.vehiculo_marca || '') + ' ' + (viaje.vehiculo_modelo || '') +
+          ' · Matrícula <strong>' + (viaje.matricula || '—') + '</strong>';
+      }
+      document.getElementById('detalle-viaje').innerHTML = detalle;
       document.getElementById('boton-cancelar').dataset.viajeId = viaje.id;
+      // Una vez el viaje está en curso, ya no se puede cancelar desde la app
+      document.getElementById('boton-cancelar').classList.toggle('oculto', viaje.estado === 'en_curso');
+
+      // Sondeo: consultar el estado cada 6 segundos
+      if (!sondeoViaje) sondeoViaje = setInterval(actualizarViaje, 6000);
+    }
+
+    async function actualizarViaje() {
+      const r = await fetch('/api/pasajero/viaje-actual');
+      const { viaje } = await r.json();
+      if (viaje) {
+        mostrarViaje(viaje);
+      } else {
+        // El viaje terminó (o fue finalizado por el conductor): volver al inicio
+        clearInterval(sondeoViaje);
+        sondeoViaje = null;
+        alert('Tu viaje ha terminado. ¡Gracias por viajar con nosotros! 🚖');
+        location.reload();
+      }
     }
 
     async function cancelarViaje() {
