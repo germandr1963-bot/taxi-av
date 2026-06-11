@@ -10,15 +10,22 @@
   <style>
     /* Estilos propios del mapa (solo de esta página) */
     #mapa {
-      height: 380px;
+      height: 360px;
       border-radius: 12px;
       border: 1px solid var(--borde);
-      margin-top: 10px;
+      margin-top: 14px;
     }
-    .pasos-viaje { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .buscador { display: flex; gap: 8px; align-items: flex-end; }
+    .buscador > div { flex: 1; }
+    .buscador button { margin-top: 0; padding: 11px 14px; white-space: nowrap; }
+    .resultados { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+    .resultados li { padding: 10px 12px; font-size: 0.9rem; cursor: pointer; background: #fff; border-bottom: 1px solid var(--borde); }
+    .resultados li:last-child { border-bottom: none; }
+    .resultados li:hover { background: #EAF4F6; }
+    .pasos-viaje { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
     .pasos-viaje button { margin-top: 0; padding: 10px 14px; font-size: 0.9rem; }
     #instruccion-mapa {
-      margin-top: 12px;
+      margin-top: 14px;
       padding: 10px 12px;
       background: #EAF4F6;
       border-left: 4px solid var(--costa);
@@ -27,6 +34,7 @@
     }
     #resumen-viaje { margin-top: 12px; font-size: 1rem; }
     #resumen-viaje strong { color: var(--atlantico); }
+    #boton-confirmar { width: 100%; font-size: 1.05rem; }
   </style>
 </head>
 <body>
@@ -76,12 +84,32 @@
     <!-- ===== Panel del pasajero (tras iniciar sesión) ===== -->
     <section id="zona-panel" class="oculto">
       <h1 id="saludo">Hola</h1>
-      <p class="sub">Marca en el mapa de dónde sales y a dónde vas.</p>
+      <p class="sub">Indica de dónde sales y a dónde vas. Puedes escribir la dirección o tocar el mapa, y ajustar los puntos arrastrándolos.</p>
 
       <div class="tarjeta">
         <h2 style="margin-top:0">Pedir un taxi</h2>
 
-        <div id="instruccion-mapa">📍 Toca en el mapa el punto de <strong>RECOGIDA</strong> (o usa el botón de tu ubicación).</div>
+        <!-- Búsqueda de ORIGEN -->
+        <div class="buscador">
+          <div>
+            <label for="direccion-origen">📍 Dirección de recogida</label>
+            <input id="direccion-origen" type="text" placeholder="Ej.: Calle Triana 25, Las Palmas">
+          </div>
+          <button class="secundario" onclick="buscarDireccion('origen')">Buscar</button>
+        </div>
+        <ul id="resultados-origen" class="resultados oculto"></ul>
+
+        <!-- Búsqueda de DESTINO -->
+        <div class="buscador" style="margin-top:10px">
+          <div>
+            <label for="direccion-destino">🏁 Dirección de destino</label>
+            <input id="direccion-destino" type="text" placeholder="Ej.: Aeropuerto de Gran Canaria">
+          </div>
+          <button class="secundario" onclick="buscarDireccion('destino')">Buscar</button>
+        </div>
+        <ul id="resultados-destino" class="resultados oculto"></ul>
+
+        <div id="instruccion-mapa">Escribe una dirección y pulsa Buscar, o toca directamente el mapa: primer toque = recogida, segundo = destino. Arrastra los marcadores para afinar.</div>
 
         <div id="mapa"></div>
 
@@ -91,6 +119,8 @@
         </div>
 
         <div id="resumen-viaje"></div>
+
+        <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
       </div>
 
       <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -120,7 +150,7 @@
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
       document.getElementById('saludo').textContent = 'Hola, ' + nombre;
-      iniciarMapa(); // ← novedad de la Fase 2: el mapa arranca al entrar
+      iniciarMapa();
     }
 
     async function registrarse() {
@@ -170,21 +200,22 @@
     })();
 
     // ============================================================
-    // PARTE 2 · EL MAPA — Fase 2, Entrega 1
-    // El pasajero marca origen y destino y ve la distancia.
-    // (La confirmación del viaje llega en la Entrega 2.)
+    // PARTE 2 · EL MAPA — Fase 2, Entrega 1.5
+    // Direcciones buscables + marcadores arrastrables + confirmación.
+    // Todo es editable hasta pulsar "Confirmar recogida y destino".
     // ============================================================
     let mapa = null;
     let marcadorOrigen = null;
     let marcadorDestino = null;
-    let paso = 'origen'; // origen → destino → listo
+    let direccionOrigen = '';
+    let direccionDestino = '';
+    let confirmado = false;
 
-    // Límites del archipiélago canario (para no perderse por el mapa mundial)
     const LIMITES_CANARIAS = [[27.2, -18.6], [29.6, -13.0]];
     const CENTRO_GRAN_CANARIA = [27.96, -15.59];
 
     function iniciarMapa() {
-      if (mapa) return; // evitar crearlo dos veces
+      if (mapa) return;
       mapa = L.map('mapa', {
         center: CENTRO_GRAN_CANARIA,
         zoom: 10,
@@ -197,48 +228,93 @@
       }).addTo(mapa);
 
       mapa.on('click', function (e) {
-        ponerPunto(e.latlng.lat, e.latlng.lng);
+        if (confirmado) return;
+        if (!marcadorOrigen) ponerMarcador('origen', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
+        else if (!marcadorDestino) ponerMarcador('destino', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
+        // Si ambos existen, los toques se ignoran: para mover, arrastra los marcadores.
       });
 
-      // Pequeño truco: a veces el mapa se dibuja antes de ser visible
       setTimeout(() => mapa.invalidateSize(), 200);
     }
 
-    function ponerPunto(lat, lng) {
-      if (paso === 'origen') {
-        if (marcadorOrigen) mapa.removeLayer(marcadorOrigen);
-        marcadorOrigen = L.marker([lat, lng]).addTo(mapa)
-          .bindPopup('Recogida').openPopup();
-        paso = 'destino';
-        document.getElementById('instruccion-mapa').innerHTML =
-          '🏁 Ahora toca el punto de <strong>DESTINO</strong>.';
-      } else if (paso === 'destino') {
-        if (marcadorDestino) mapa.removeLayer(marcadorDestino);
-        marcadorDestino = L.marker([lat, lng]).addTo(mapa)
-          .bindPopup('Destino').openPopup();
-        paso = 'listo';
-        document.getElementById('instruccion-mapa').innerHTML =
-          '✅ Ruta marcada. Si quieres cambiarla, pulsa "Empezar de nuevo".';
-        mostrarResumen();
+    // Crea o recoloca un marcador ARRASTRABLE
+    function ponerMarcador(cual, lat, lng, direccion) {
+      const esOrigen = (cual === 'origen');
+      let marcador = esOrigen ? marcadorOrigen : marcadorDestino;
+
+      if (marcador) {
+        marcador.setLatLng([lat, lng]);
+      } else {
+        marcador = L.marker([lat, lng], { draggable: true });
+        marcador.addTo(mapa);
+        marcador.on('dragend', function () {
+          if (esOrigen) direccionOrigen = direccionOrigen + ' (ajustado en el mapa)';
+          else direccionDestino = direccionDestino + ' (ajustado en el mapa)';
+          actualizarEstado();
+        });
+        if (esOrigen) marcadorOrigen = marcador; else marcadorDestino = marcador;
       }
-      // Si paso === 'listo', los toques en el mapa se ignoran hasta reiniciar.
+
+      marcador.bindPopup(esOrigen ? '📍 Recogida (arrástrame para ajustar)' : '🏁 Destino (arrástrame para ajustar)').openPopup();
+      if (esOrigen) direccionOrigen = direccion; else direccionDestino = direccion;
+      actualizarEstado();
+    }
+
+    // Busca la dirección escrita usando Nominatim (OpenStreetMap), limitado a Canarias
+    async function buscarDireccion(cual) {
+      if (confirmado) return;
+      const texto = document.getElementById('direccion-' + cual).value.trim();
+      const lista = document.getElementById('resultados-' + cual);
+      if (texto.length < 3) {
+        lista.classList.add('oculto');
+        alert('Escribe al menos 3 letras de la dirección.');
+        return;
+      }
+      lista.innerHTML = '<li>Buscando…</li>';
+      lista.classList.remove('oculto');
+
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=es' +
+          '&countrycodes=es&viewbox=-18.6,29.6,-13.0,27.2&bounded=1&q=' + encodeURIComponent(texto);
+        const r = await fetch(url);
+        const resultados = await r.json();
+
+        if (!resultados.length) {
+          lista.innerHTML = '<li>Sin resultados en Canarias. Prueba añadiendo el municipio (ej.: ", Las Palmas").</li>';
+          return;
+        }
+
+        lista.innerHTML = '';
+        resultados.forEach(function (lugar) {
+          const li = document.createElement('li');
+          li.textContent = lugar.display_name;
+          li.onclick = function () {
+            ponerMarcador(cual, parseFloat(lugar.lat), parseFloat(lugar.lon), lugar.display_name);
+            document.getElementById('direccion-' + cual).value = lugar.display_name.split(',').slice(0, 2).join(',');
+            lista.classList.add('oculto');
+            mapa.setView([parseFloat(lugar.lat), parseFloat(lugar.lon)], 16);
+          };
+          lista.appendChild(li);
+        });
+      } catch (e) {
+        lista.innerHTML = '<li>Error al buscar. Inténtalo de nuevo en unos segundos.</li>';
+      }
     }
 
     function usarMiUbicacion() {
+      if (confirmado) return;
       if (!navigator.geolocation) {
         alert('Tu navegador no permite obtener la ubicación.');
         return;
       }
       navigator.geolocation.getCurrentPosition(
         function (posicion) {
-          paso = 'origen'; // la ubicación siempre fija el ORIGEN
-          if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
-          document.getElementById('resumen-viaje').innerHTML = '';
-          ponerPunto(posicion.coords.latitude, posicion.coords.longitude);
-          mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 15);
+          ponerMarcador('origen', posicion.coords.latitude, posicion.coords.longitude, 'Mi ubicación actual');
+          document.getElementById('direccion-origen').value = 'Mi ubicación actual';
+          mapa.setView([posicion.coords.latitude, posicion.coords.longitude], 16);
         },
         function () {
-          alert('No se pudo obtener tu ubicación. Comprueba que diste permiso al navegador.');
+          alert('No se pudo obtener tu ubicación. Comprueba que diste permiso al navegador y que el GPS está activado.');
         }
       );
     }
@@ -246,15 +322,23 @@
     function reiniciarSeleccion() {
       if (marcadorOrigen) { mapa.removeLayer(marcadorOrigen); marcadorOrigen = null; }
       if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
-      paso = 'origen';
+      direccionOrigen = '';
+      direccionDestino = '';
+      confirmado = false;
+      document.getElementById('direccion-origen').value = '';
+      document.getElementById('direccion-destino').value = '';
+      document.getElementById('direccion-origen').disabled = false;
+      document.getElementById('direccion-destino').disabled = false;
+      document.getElementById('resultados-origen').classList.add('oculto');
+      document.getElementById('resultados-destino').classList.add('oculto');
       document.getElementById('resumen-viaje').innerHTML = '';
+      document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('instruccion-mapa').innerHTML =
-        '📍 Toca en el mapa el punto de <strong>RECOGIDA</strong> (o usa el botón de tu ubicación).';
+        'Escribe una dirección y pulsa Buscar, o toca directamente el mapa: primer toque = recogida, segundo = destino. Arrastra los marcadores para afinar.';
     }
 
-    // Distancia en línea recta entre dos puntos (fórmula de Haversine)
     function distanciaKm(lat1, lng1, lat2, lng2) {
-      const R = 6371; // radio de la Tierra en km
+      const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLng = (lng2 - lng1) * Math.PI / 180;
       const a = Math.sin(dLat / 2) ** 2 +
@@ -263,13 +347,45 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    function mostrarResumen() {
+    // Actualiza instrucciones, distancia y botón de confirmar según lo que haya
+    function actualizarEstado() {
+      const instruccion = document.getElementById('instruccion-mapa');
+      const resumen = document.getElementById('resumen-viaje');
+      const botonConfirmar = document.getElementById('boton-confirmar');
+
+      if (marcadorOrigen && !marcadorDestino) {
+        instruccion.innerHTML = '🏁 Recogida puesta. Ahora indica el <strong>DESTINO</strong> (búscalo o toca el mapa). Puedes arrastrar el marcador para ajustarlo.';
+        resumen.innerHTML = '';
+        botonConfirmar.classList.add('oculto');
+      } else if (marcadorOrigen && marcadorDestino) {
+        const o = marcadorOrigen.getLatLng();
+        const d = marcadorDestino.getLatLng();
+        const km = distanciaKm(o.lat, o.lng, d.lat, d.lng);
+        instruccion.innerHTML = '✏️ Revisa los dos puntos: puedes <strong>arrastrarlos</strong> para afinar. Cuando estén bien, pulsa Confirmar.';
+        resumen.innerHTML = 'Distancia en línea recta: <strong>' + km.toFixed(1) + ' km</strong> (aproximada)';
+        botonConfirmar.classList.remove('oculto');
+      }
+    }
+
+    // Paso final: fija ambos puntos (deja de ser editable)
+    function confirmarPuntos() {
+      confirmado = true;
+      marcadorOrigen.dragging.disable();
+      marcadorDestino.dragging.disable();
+      marcadorOrigen.closePopup();
+      marcadorDestino.closePopup();
+      document.getElementById('direccion-origen').disabled = true;
+      document.getElementById('direccion-destino').disabled = true;
+      document.getElementById('boton-confirmar').classList.add('oculto');
+
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
       const km = distanciaKm(o.lat, o.lng, d.lat, d.lng);
+      document.getElementById('instruccion-mapa').innerHTML =
+        '✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".';
       document.getElementById('resumen-viaje').innerHTML =
-        'Distancia en línea recta: <strong>' + km.toFixed(1) + ' km</strong> (aproximada)<br>' +
-        '<em>El botón para confirmar el viaje llegará en la próxima actualización.</em>';
+        '<strong>Viaje preparado</strong> · ' + km.toFixed(1) + ' km en línea recta (aprox.)<br>' +
+        '<em>El botón para pedir el taxi llegará en la próxima actualización.</em>';
     }
   </script>
 </body>
