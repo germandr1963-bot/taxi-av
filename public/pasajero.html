@@ -135,10 +135,14 @@
           <button class="boton-ubicacion oculto" id="boton-confirmar-origen" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
         </div>
 
-        <!-- Resumen: recorrido, tiempo y precio inicial -->
-        <div id="resumen-viaje"></div>
-
         <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
+
+        <!-- Información del viaje: aparte de la solicitud, debajo de la confirmación -->
+        <div id="info-viaje" class="oculto">
+          <h2>Información del viaje</h2>
+          <div id="resumen-viaje"></div>
+        </div>
+
         <button id="boton-pedir" class="oculto" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
       </div>
 
@@ -417,6 +421,7 @@
       document.getElementById('resultados-origen').classList.add('oculto');
       document.getElementById('resultados-destino').classList.add('oculto');
       document.getElementById('resumen-viaje').innerHTML = '';
+      document.getElementById('info-viaje').classList.add('oculto');
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-confirmar-origen').classList.add('oculto');
@@ -444,6 +449,7 @@
     async function calcularRuta() {
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
+      document.getElementById('info-viaje').classList.remove('oculto');
       document.getElementById('resumen-viaje').innerHTML = '🛣️ Calculando recorrido…';
 
       try {
@@ -476,17 +482,19 @@
       const min = rutaActual.min;
       const precio = precioEstimado(km, min || 0);
       let html = '🛣️ Recorrido: <strong>' + km.toFixed(1) + ' km</strong>';
-      if (min !== null) html += ' · ⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
-      html += ' · 💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
+      if (min !== null) html += '<br>⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
+      html += '<br>💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
       html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
-      irA('resumen-viaje');
+      document.getElementById('info-viaje').classList.remove('oculto');
+      // Sin desplazamientos extra: la vista se queda en el mapa, donde el usuario está ajustando
     }
 
     function actualizarEstado() {
       if (marcadorOrigen && !marcadorDestino) {
         instruccion('🧐 Comprueba el punto de recogida en el mapa: arrástralo si hace falta y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('resumen-viaje').innerHTML = '';
+        document.getElementById('info-viaje').classList.add('oculto');
         document.getElementById('boton-confirmar').classList.add('oculto');
         document.getElementById('boton-confirmar-origen').classList.remove('oculto');
         irA('mapa');
