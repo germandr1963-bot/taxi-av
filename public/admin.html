@@ -55,18 +55,32 @@
         <div id="mensaje-ajustes" class="mensaje"></div>
       </div>
 
+      <h2>Categorías de vehículos</h2>
+      <p class="sub" style="margin-bottom:10px">Solo las categorías activas se ofrecen a los taxistas en el alta. Activa el resto cuando quieras ampliar la flota.</p>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Descripción</th><th>Estado</th><th>Acción</th></tr>
+          </thead>
+          <tbody id="tabla-categorias"></tbody>
+        </table>
+      </div>
+
       <h2>Conductores</h2>
       <div class="tabla-envoltura">
         <table>
           <thead>
             <tr>
-              <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Isla</th>
-              <th>Valoración</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
+              <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Categoría</th><th>Isla</th>
+              <th>Foto</th><th>Valoración</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody id="tabla-conductores"></tbody>
         </table>
       </div>
+
+      <!-- Expediente del conductor seleccionado -->
+      <div class="tarjeta oculto" id="ficha-conductor" style="border:2px solid var(--costa)"></div>
 
       <h2>Pasajeros</h2>
       <div class="tabla-envoltura">
@@ -122,7 +136,85 @@
     async function cargarPanel() {
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones()]);
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarCategorias()]);
+    }
+
+    const ETIQUETAS_FOTO = {
+      sin_foto: '<span style="color:#5a6c79">Sin foto</span>',
+      pendiente: '<span class="etiqueta pendiente">FOTO PENDIENTE</span>',
+      aprobada: '<span class="etiqueta aprobado">foto ok</span>',
+      rechazada: '<span class="etiqueta suspendido">rechazada</span>'
+    };
+
+    async function verFicha(id) {
+      const r = await fetch('/api/admin/conductores/' + id + '/ficha');
+      const { conductor: c } = await r.json();
+      const ficha = document.getElementById('ficha-conductor');
+      ficha.classList.remove('oculto');
+      ficha.innerHTML = `
+        <h2 style="margin-top:0">📋 Expediente: ${escapar(c.nombre)}</h2>
+        ${c.foto ? '<img src="' + c.foto + '" alt="Foto de carné" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:2px solid var(--borde);float:right;margin-left:12px">' : ''}
+        <p>
+        <strong>Datos personales</strong><br>
+        Documento: ${escapar(c.documento || '—')} · Tel.: ${escapar(c.telefono)} · ${escapar(c.email)}<br>
+        ${escapar(c.direccion || '—')}, ${escapar(c.cp || '')} ${escapar(c.municipio || '')}<br><br>
+        <strong>Licencia</strong><br>
+        Nº ${escapar(c.numero_licencia || '—')} · Municipio: ${escapar(c.municipio_licencia || '—')}<br>
+        Central de flota: ${escapar(c.central_flota || '—')}<br><br>
+        <strong>Vehículo</strong><br>
+        ${escapar(c.vehiculo_marca || '—')} ${escapar(c.vehiculo_modelo || '')} · Categoría: ${escapar(c.categoria || '—')}<br>
+        Matrícula ${escapar(c.matricula || '—')} · Nº taxi ${escapar(c.numero_taxi || '—')} · ${c.plazas} plazas · ${escapar(c.isla)}<br><br>
+        <strong>Foto de carné:</strong> ${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}
+        ${c.foto_motivo ? '<br><em>Motivo del rechazo: ' + escapar(c.foto_motivo) + '</em>' : ''}
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${c.foto_estado === 'pendiente' || c.foto_estado === 'rechazada' ? `<button style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'aprobar')">✅ Aprobar foto</button>` : ''}
+          ${c.foto_estado === 'pendiente' || c.foto_estado === 'aprobada' ? `<button class="peligro" style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'rechazar')">❌ Rechazar foto</button>` : ''}
+          <button class="secundario" style="margin-top:0;padding:8px 14px" onclick="document.getElementById('ficha-conductor').classList.add('oculto')">Cerrar ficha</button>
+        </div>`;
+      ficha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function decidirFoto(id, accion) {
+      let motivo = null;
+      if (accion === 'rechazar') {
+        motivo = prompt('Motivo del rechazo (el conductor lo verá):', 'La foto no es clara o no es de tipo carné.');
+        if (motivo === null) return;
+      }
+      await fetch('/api/admin/conductores/' + id + '/foto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion, motivo })
+      });
+      await Promise.all([cargarConductores(), verFicha(id)]);
+    }
+
+    async function cargarCategorias() {
+      const r = await fetch('/api/admin/categorias');
+      const { categorias } = await r.json();
+      document.getElementById('tabla-categorias').innerHTML = categorias.map(cat => `
+        <tr>
+          <td><strong>${escapar(cat.nombre)}</strong></td>
+          <td>${cat.capacidad_pasajeros}</td>
+          <td>${escapar(cat.capacidad_maletas)}</td>
+          <td>${cat.limite_sillas}</td>
+          <td style="white-space:normal">${escapar(cat.descripcion || '')}</td>
+          <td><span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span></td>
+          <td>
+            <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
+              onclick="alternarCategoria(${cat.id}, ${!cat.activa})">${cat.activa ? 'Desactivar' : 'Activar'}</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function alternarCategoria(id, activa) {
+      await fetch('/api/admin/categorias/' + id + '/activa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activa })
+      });
+      await cargarCategorias();
     }
 
     async function cargarValoraciones() {
@@ -190,7 +282,7 @@
       const { conductores } = await r.json();
       const cuerpo = document.getElementById('tabla-conductores');
       if (conductores.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="8">Todavía no hay conductores registrados.</td></tr>';
+        cuerpo.innerHTML = '<tr><td colspan="10">Todavía no hay conductores registrados.</td></tr>';
         return;
       }
       cuerpo.innerHTML = conductores.map(c => `
@@ -198,7 +290,9 @@
           <td>${escapar(c.nombre)}</td>
           <td>${escapar(c.email)}<br>${escapar(c.telefono)}</td>
           <td>${escapar(c.vehiculo_marca)} ${escapar(c.vehiculo_modelo)}<br>${escapar(c.matricula)} · ${c.plazas} plazas · Nº taxi: ${escapar(c.numero_taxi || '—')}</td>
+          <td>${escapar(c.categoria || '—')}</td>
           <td>${escapar(c.isla)}</td>
+          <td>${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}</td>
           <td>${c.media_estrellas ? '<span class="estrellas-ambar">★</span> <strong>' + c.media_estrellas + '</strong> <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
           <td>
             <select onchange="cambiarTipo(${c.id}, this.value)">
@@ -208,6 +302,7 @@
           </td>
           <td><span class="etiqueta ${c.estado}">${c.estado}</span></td>
           <td>
+            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="verFicha(${c.id})">📋 Ficha</button>
             ${c.estado !== 'aprobado' ? `<button style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'aprobado')">Aprobar</button>` : ''}
             ${c.estado !== 'suspendido' ? `<button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'suspendido')">Suspender</button>` : ''}
           </td>

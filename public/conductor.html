@@ -33,25 +33,47 @@
           <button onclick="iniciarSesion()">Entrar</button>
         </div>
 
-        <!-- Registro -->
+        <!-- Registro: alta profesional del taxista en Taxi - Guanche -->
         <div id="formulario-registro" class="oculto">
+          <h2>Tus datos personales</h2>
           <label for="registro-nombre">Nombre completo</label>
           <input id="registro-nombre" type="text" autocomplete="name">
+          <label for="registro-documento">Documento de identidad (DNI/NIE)</label>
+          <input id="registro-documento" type="text" placeholder="00000000A">
+          <label for="registro-direccion">Dirección</label>
+          <input id="registro-direccion" type="text">
+          <label for="registro-cp">Código postal</label>
+          <input id="registro-cp" type="text">
+          <label for="registro-municipio">Municipio</label>
+          <input id="registro-municipio" type="text">
           <label for="registro-email">Email</label>
           <input id="registro-email" type="email" autocomplete="email">
-          <label for="registro-telefono">Teléfono</label>
+          <label for="registro-telefono">Teléfono móvil</label>
           <input id="registro-telefono" type="tel" autocomplete="tel">
           <label for="registro-password">Contraseña (mínimo 6 caracteres)</label>
           <input id="registro-password" type="password" autocomplete="new-password">
 
+          <h2>Tu licencia de taxi</h2>
+          <label for="registro-municipio-licencia">Municipio de la licencia municipal</label>
+          <input id="registro-municipio-licencia" type="text" placeholder="Las Palmas de Gran Canaria">
+          <label for="registro-numero-licencia">Número de la licencia municipal</label>
+          <input id="registro-numero-licencia" type="text">
+          <label for="registro-central">Central de control de flota (si perteneces a alguna)</label>
+          <input id="registro-central" type="text" placeholder="Opcional">
+
           <h2>Tu vehículo</h2>
+          <label for="registro-categoria">Categoría del servicio</label>
+          <select id="registro-categoria"></select>
+          <p id="descripcion-categoria" style="font-size:0.82rem;color:#5a6c79;margin-top:4px"></p>
           <label for="registro-marca">Marca</label>
-          <input id="registro-marca" type="text" placeholder="Toyota">
+          <select id="registro-marca" onchange="cambioMarca()"></select>
+          <input id="registro-marca-nueva" type="text" class="oculto" placeholder="Escribe la marca nueva" style="margin-top:6px">
           <label for="registro-modelo">Modelo</label>
-          <input id="registro-modelo" type="text" placeholder="Prius">
+          <select id="registro-modelo" onchange="cambioModelo()"></select>
+          <input id="registro-modelo-nuevo" type="text" class="oculto" placeholder="Escribe el modelo nuevo" style="margin-top:6px">
           <label for="registro-matricula">Matrícula</label>
           <input id="registro-matricula" type="text" placeholder="0000 ABC">
-          <label for="registro-numero-taxi">Número de taxi (licencia)</label>
+          <label for="registro-numero-taxi">Número de taxi</label>
           <input id="registro-numero-taxi" type="text" placeholder="Ej.: 154">
           <label for="registro-plazas">Plazas para pasajeros</label>
           <select id="registro-plazas">
@@ -72,7 +94,22 @@
             <option>El Hierro</option>
             <option>La Graciosa</option>
           </select>
-          <button onclick="registrarse()">Enviar solicitud</button>
+
+          <h2>Aceptaciones</h2>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400">
+            <input type="checkbox" id="acepta-condiciones" style="width:auto;margin-top:3px">
+            He leído y acepto las Condiciones Generales de adscripción del Operador de Transporte a Taxi - Guanche.
+          </label>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400">
+            <input type="checkbox" id="acepta-manual" style="width:auto;margin-top:3px">
+            He leído y acepto el Manual de Buen Operador.
+          </label>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400">
+            <input type="checkbox" id="acepta-privacidad" style="width:auto;margin-top:3px">
+            He leído y acepto la <a href="privacidad.html" target="_blank">Política de Privacidad</a>.
+          </label>
+
+          <button onclick="registrarse()">Enviar solicitud de alta</button>
         </div>
 
         <div id="mensaje" class="mensaje"></div>
@@ -140,13 +177,22 @@
       document.getElementById('texto-estado').innerHTML =
         '<span class="etiqueta ' + conductor.estado + '">' + conductor.estado.toUpperCase() + '</span> ' +
         TEXTOS_ESTADO[conductor.estado];
+      const TEXTOS_FOTO = {
+        sin_foto: '📷 Aún no has subido tu foto de carné.',
+        pendiente: '🕐 Tu foto está pendiente de revisión por la administración.',
+        aprobada: '✅ Foto aprobada: los pasajeros ya la ven.',
+        rechazada: '❌ Foto rechazada' + (conductor.foto_motivo ? ': ' + conductor.foto_motivo : '') + '. Sube otra, por favor.'
+      };
       document.getElementById('ficha-vehiculo').innerHTML =
         '<h2 style="margin-top:0">Tu vehículo</h2>' +
         (conductor.foto ? '<img src="' + conductor.foto + '" alt="Foto de carné" style="width:90px;height:90px;object-fit:cover;border-radius:50%;border:2px solid var(--borde);float:right;margin-left:10px">' : '') +
-        '<p><strong>' + (conductor.vehiculo_marca || '—') + ' ' + (conductor.vehiculo_modelo || '') + '</strong><br>' +
+        '<p><strong>' + (conductor.vehiculo_marca || '—') + ' ' + (conductor.vehiculo_modelo || '') + '</strong>' +
+        (conductor.categoria ? ' · Categoría <strong>' + conductor.categoria + '</strong>' : '') + '<br>' +
         'Matrícula: ' + (conductor.matricula || '—') + ' · Nº de taxi: <strong>' + (conductor.numero_taxi || '—') + '</strong><br>' +
+        'Licencia: ' + (conductor.numero_licencia || '—') + ' (' + (conductor.municipio_licencia || '—') + ')<br>' +
         'Plazas: ' + conductor.plazas + ' · Isla: ' + conductor.isla + '</p>' +
-        '<label for="archivo-foto" style="margin-top:10px">📷 ' + (conductor.foto ? 'Cambiar' : 'Subir') + ' foto de carné (el pasajero la verá para reconocerte)</label>' +
+        '<p style="font-size:0.88rem">' + (TEXTOS_FOTO[conductor.foto_estado || 'sin_foto']) + '</p>' +
+        '<label for="archivo-foto" style="margin-top:10px">📷 ' + (conductor.foto ? 'Cambiar' : 'Subir') + ' foto de carné (será revisada por la administración antes de mostrarse)</label>' +
         '<input type="file" id="archivo-foto" accept="image/*" onchange="subirFoto(this)">';
 
       // El panel de trabajo solo se activa para conductores aprobados
@@ -298,7 +344,7 @@
             body: JSON.stringify({ foto: datos })
           });
           const respuesta = await r.json();
-          if (respuesta.ok) { alert('Foto guardada. 📷'); mostrarPanel(); }
+          if (respuesta.ok) { alert('Foto enviada. 📷 Quedará visible para los pasajeros cuando la administración la apruebe.'); mostrarPanel(); }
           else alert(respuesta.error);
         };
         imagen.src = evento.target.result;
@@ -327,18 +373,82 @@
       }
     }
 
+    // ---------- Catálogo: categorías activas y marcas/modelos ----------
+    let catalogo = { categorias: [], marcas: [] };
+
+    async function cargarCatalogo() {
+      try {
+        catalogo = await (await fetch('/api/catalogo')).json();
+      } catch (e) { return; }
+      const selCategoria = document.getElementById('registro-categoria');
+      selCategoria.innerHTML = catalogo.categorias.map(cat =>
+        '<option value="' + cat.id + '">' + cat.nombre + ' (' + cat.capacidad_pasajeros + ' pasajeros, ' + cat.capacidad_maletas + ' maletas)</option>'
+      ).join('');
+      selCategoria.onchange = pintarDescripcionCategoria;
+      pintarDescripcionCategoria();
+
+      const selMarca = document.getElementById('registro-marca');
+      selMarca.innerHTML = catalogo.marcas.map(m =>
+        '<option value="' + m.id + '">' + m.nombre + '</option>'
+      ).join('') + '<option value="nueva">➕ Otra marca (añadirla)</option>';
+      cambioMarca();
+    }
+
+    function pintarDescripcionCategoria() {
+      const id = parseInt(document.getElementById('registro-categoria').value, 10);
+      const cat = catalogo.categorias.find(x => x.id === id);
+      document.getElementById('descripcion-categoria').textContent = cat ? cat.descripcion : '';
+    }
+
+    function cambioMarca() {
+      const valor = document.getElementById('registro-marca').value;
+      const esNueva = (valor === 'nueva');
+      document.getElementById('registro-marca-nueva').classList.toggle('oculto', !esNueva);
+      const selModelo = document.getElementById('registro-modelo');
+      if (esNueva) {
+        selModelo.innerHTML = '<option value="nuevo">➕ Escribir el modelo</option>';
+      } else {
+        const marca = catalogo.marcas.find(m => String(m.id) === valor);
+        selModelo.innerHTML = (marca ? marca.modelos.map(mo =>
+          '<option value="' + mo.id + '">' + mo.nombre + '</option>'
+        ).join('') : '') + '<option value="nuevo">➕ Otro modelo (añadirlo)</option>';
+      }
+      cambioModelo();
+    }
+
+    function cambioModelo() {
+      const esNuevo = (document.getElementById('registro-modelo').value === 'nuevo');
+      document.getElementById('registro-modelo-nuevo').classList.toggle('oculto', !esNuevo);
+    }
+
     async function registrarse() {
+      const valor = id => document.getElementById(id).value;
+      const marcaSeleccion = valor('registro-marca');
+      const modeloSeleccion = valor('registro-modelo');
       const datos = {
-        nombre: document.getElementById('registro-nombre').value,
-        email: document.getElementById('registro-email').value,
-        telefono: document.getElementById('registro-telefono').value,
-        password: document.getElementById('registro-password').value,
-        vehiculo_marca: document.getElementById('registro-marca').value,
-        vehiculo_modelo: document.getElementById('registro-modelo').value,
-        matricula: document.getElementById('registro-matricula').value,
-        numero_taxi: document.getElementById('registro-numero-taxi').value,
-        plazas: document.getElementById('registro-plazas').value,
-        isla: document.getElementById('registro-isla').value
+        nombre: valor('registro-nombre'),
+        documento: valor('registro-documento'),
+        direccion: valor('registro-direccion'),
+        cp: valor('registro-cp'),
+        municipio: valor('registro-municipio'),
+        email: valor('registro-email'),
+        telefono: valor('registro-telefono'),
+        password: valor('registro-password'),
+        municipio_licencia: valor('registro-municipio-licencia'),
+        numero_licencia: valor('registro-numero-licencia'),
+        central_flota: valor('registro-central'),
+        categoria_id: valor('registro-categoria'),
+        marca_id: marcaSeleccion === 'nueva' ? null : marcaSeleccion,
+        marca_nueva: marcaSeleccion === 'nueva' ? valor('registro-marca-nueva') : null,
+        modelo_id: modeloSeleccion === 'nuevo' ? null : modeloSeleccion,
+        modelo_nuevo: modeloSeleccion === 'nuevo' ? valor('registro-modelo-nuevo') : null,
+        matricula: valor('registro-matricula'),
+        numero_taxi: valor('registro-numero-taxi'),
+        plazas: valor('registro-plazas'),
+        isla: valor('registro-isla'),
+        acepta_condiciones: document.getElementById('acepta-condiciones').checked,
+        acepta_manual: document.getElementById('acepta-manual').checked,
+        acepta_privacidad: document.getElementById('acepta-privacidad').checked
       };
       const r = await fetch('/api/conductor/registro', {
         method: 'POST',
@@ -350,7 +460,9 @@
       else mostrarMensaje(respuesta.error, 'error');
     }
 
-    async function iniciarSesion() {
+    cargarCatalogo();
+
+        async function iniciarSesion() {
       const datos = {
         email: document.getElementById('login-email').value,
         password: document.getElementById('login-password').value
