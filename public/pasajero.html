@@ -144,6 +144,8 @@
         </div>
 
         <button id="boton-pedir" class="oculto" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
+        <button id="boton-reiniciar-grande" class="secundario oculto" onclick="reiniciarSeleccion()"
+          style="width:100%;font-size:1.05rem">🔄 Empezar de nuevo (cambiar el viaje)</button>
       </div>
 
       <!-- ===== Valoración del viaje (opcional, al terminar) ===== -->
@@ -169,7 +171,7 @@
         <div id="eta-viaje" class="oculto" style="margin-top:8px;padding:10px 12px;background:#EAF4F6;border-left:4px solid var(--luminoso);border-radius:6px;font-size:1rem;font-weight:600"></div>
         <div id="mapa-viaje" style="height:300px;border-radius:12px;border:1px solid var(--borde);margin-top:12px" class="oculto"></div>
         <div id="detalle-viaje" style="margin-top:12px;font-size:0.95rem"></div>
-        <button class="secundario" onclick="contactarChofer()">💬 Contactar al chofer</button>
+        <button class="secundario oculto" id="boton-contactar" onclick="contactarChofer()">💬 Contactar al chofer</button>
         <button class="peligro" onclick="cancelarViaje()" id="boton-cancelar">Cancelar viaje</button>
       </div>
 
@@ -424,6 +426,7 @@
       document.getElementById('info-viaje').classList.add('oculto');
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
+      document.getElementById('boton-reiniciar-grande').classList.add('oculto');
       document.getElementById('boton-confirmar-origen').classList.add('oculto');
       instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
       const caja = document.getElementById('direccion-origen');
@@ -523,6 +526,7 @@
       mapa.flyTo([o.lat, o.lng], 13, { duration: 0.8 });
       irA('mapa');
       document.getElementById('boton-pedir').classList.remove('oculto');
+      document.getElementById('boton-reiniciar-grande').classList.remove('oculto');
     }
 
     // ============================================================
@@ -661,7 +665,7 @@
     }
 
     function contactarChofer() {
-      alert('El chat privado con tu conductor llegará muy pronto. Mientras tanto, espéralo en el punto de recogida: puedes ver dónde está en el mapa. 🚖');
+      alert('💬 Recuerda: tu conductor está al volante.\n\nUsa el contacto solo para algo realmente importante (por ejemplo, un cambio en el punto de recogida). En el mapa ya puedes ver dónde está tu taxi y su tiempo estimado de llegada.\n\nEl chat llegará muy pronto.');
     }
 
     function mostrarViaje(viaje) {
@@ -672,6 +676,7 @@
         TEXTOS_ESTADO_VIAJE[viaje.estado] || viaje.estado;
 
       let detalle =
+        '<strong>Viaje nº ' + viaje.id + '</strong><br>' +
         '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
         '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
         '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
@@ -691,6 +696,9 @@
       document.getElementById('boton-cancelar').dataset.viajeId = viaje.id;
       // Una vez el viaje está en curso, ya no se puede cancelar desde la app
       document.getElementById('boton-cancelar').classList.toggle('oculto', viaje.estado === 'en_curso');
+      // El contacto solo existe cuando HAY chofer asignado y la empresa lo permite para ese chofer
+      const contactoVisible = !!viaje.conductor_nombre && viaje.contacto_permitido !== false;
+      document.getElementById('boton-contactar').classList.toggle('oculto', !contactoVisible);
 
       // Sondeo: consultar el estado cada 6 segundos
       if (!sondeoViaje) sondeoViaje = setInterval(actualizarViaje, 6000);

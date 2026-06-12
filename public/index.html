@@ -3,12 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Taxi - Guanche · Tu taxi en Canarias</title>
-  <!-- El cliente entra directo a pedir su taxi, sin pantallas intermedias -->
-  <meta http-equiv="refresh" content="0; url=pasajero.html">
-  <script>window.location.replace('pasajero.html');</script>
+  <title>Taxi - Guanche · Servicios</title>
+  <link rel="stylesheet" href="estilos.css">
+  <style>
+    .banners { display: grid; gap: 14px; margin-top: 18px; }
+    .banner-servicio {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 26px 22px; border-radius: 14px; cursor: pointer; border: none; text-align: left;
+      background: linear-gradient(135deg, var(--atlantico) 0%, #0E3D5E 60%, var(--costa) 130%);
+      color: #fff; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;
+      box-shadow: 0 2px 8px rgba(10,42,67,0.25); margin-top: 0;
+    }
+    .banner-servicio:hover { filter: brightness(1.08); }
+    .banner-servicio .flecha { font-size: 1.4rem; color: var(--luminoso); }
+    .banner-servicio .insignia {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+      background: var(--luminoso); color: var(--atlantico);
+      padding: 3px 10px; border-radius: 999px; margin-left: 10px; vertical-align: middle;
+    }
+    footer.pie { max-width: 920px; margin: 30px auto 0; padding: 18px 16px; border-top: 1px solid var(--borde); font-size: 0.82rem; color: #5a6c79; text-align: center; }
+    footer.pie a { color: var(--costa); text-decoration: none; margin: 0 8px; }
+  </style>
 </head>
 <body>
-  <p style="font-family:sans-serif;padding:20px">Cargando Taxi - Guanche… <a href="pasajero.html">Entrar</a></p>
+  <header class="app">
+    <a href="index.html"><img src="logo-completo.png" alt="Taxi - Guanche" class="logo"></a>
+  </header>
+
+  <main>
+    <h1 id="saludo">¡Hola!</h1>
+    <p class="sub">¿Qué servicio necesitas hoy?</p>
+    <div class="banners" id="banners">Cargando servicios…</div>
+  </main>
+
+  <footer class="pie">
+    <a href="conductor.html">Conduce con nosotros</a> ·
+    <a href="empresas.html">Empresas</a> ·
+    <a href="privacidad.html">Política de privacidad</a><br>
+    © 2026 Taxi - Guanche · Todos los derechos reservados
+  </footer>
+
+  <script>
+    function abrirServicio(nombre) {
+      if (nombre === 'Alquiler de Taxi') {
+        window.location.href = 'pasajero.html';
+      } else {
+        alert('🚧 "' + nombre + '" estará disponible muy pronto. ¡Gracias por tu interés!');
+      }
+    }
+
+    (async function () {
+      // Saludo con nombre si hay sesión de pasajero
+      try {
+        const sesion = await (await fetch('/api/sesion')).json();
+        if (sesion.rol === 'pasajero') {
+          const yo = await (await fetch('/api/pasajero/me')).json();
+          document.getElementById('saludo').textContent = '¡Hola, ' + yo.usuario.nombre + '!';
+        }
+      } catch (e) {}
+
+      // Banners de servicios (los internos solo los ve el admin, con su insignia)
+      const r = await fetch('/api/servicios');
+      const datos = await r.json();
+      const zona = document.getElementById('banners');
+      if (!datos.servicios.length) {
+        zona.innerHTML = '<p>De momento no hay servicios disponibles. Vuelve pronto.</p>';
+        return;
+      }
+      zona.innerHTML = '';
+      datos.servicios.forEach(function (s) {
+        const banner = document.createElement('button');
+        banner.className = 'banner-servicio';
+        banner.innerHTML = '<span>' + s.nombre +
+          (s.estado === 'interno' ? '<span class="insignia">EN PRUEBAS</span>' : '') +
+          '</span><span class="flecha">➜</span>';
+        banner.onclick = function () { abrirServicio(s.nombre); };
+        zona.appendChild(banner);
+      });
+    })();
+  </script>
 </body>
 </html>

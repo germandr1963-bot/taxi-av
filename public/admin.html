@@ -55,24 +55,45 @@
         <div id="mensaje-ajustes" class="mensaje"></div>
       </div>
 
+      <h2>Servicios del portal</h2>
+      <p class="sub" style="margin-bottom:10px">Los banners de la pantalla de inicio. Estados: <strong>inactivo</strong> (oculto) · <strong>activo</strong> (público) · <strong>interno</strong> (solo lo ves tú, para probar).</p>
+      <div class="tarjeta" style="max-width:520px">
+        <label for="nuevo-servicio-nombre">Añadir servicio nuevo</label>
+        <input id="nuevo-servicio-nombre" type="text" placeholder="Nombre del servicio">
+        <label for="nuevo-servicio-posicion">Posición (1 = primero)</label>
+        <input id="nuevo-servicio-posicion" type="number" min="1" value="5">
+        <button onclick="crearServicio()">Crear servicio</button>
+        <div id="mensaje-servicios" class="mensaje"></div>
+      </div>
+      <div class="tabla-envoltura">
+        <table>
+          <thead><tr><th>Posición</th><th>Servicio</th><th>Estado</th></tr></thead>
+          <tbody id="tabla-servicios"></tbody>
+        </table>
+      </div>
+
       <h2>Categorías de vehículos</h2>
       <p class="sub" style="margin-bottom:10px">Solo las categorías activas se ofrecen a los taxistas en el alta. Activa el resto cuando quieras ampliar la flota.</p>
       <div class="tabla-envoltura">
         <table>
           <thead>
-            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Descripción</th><th>Estado</th><th>Acción</th></tr>
+            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Descripción</th><th>Foto</th><th>Estado</th><th>Acción</th></tr>
           </thead>
           <tbody id="tabla-categorias"></tbody>
         </table>
       </div>
 
       <h2>Conductores</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(true)">💬 Permitir contacto a TODOS</button>
+        <button class="peligro" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(false)">🔇 Quitar contacto a TODOS</button>
+      </div>
       <div class="tabla-envoltura">
         <table>
           <thead>
             <tr>
               <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Categoría</th><th>Isla</th>
-              <th>Foto</th><th>Valoración</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
+              <th>Foto</th><th>Valoración</th><th>💬 Botón contacto</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody id="tabla-conductores"></tbody>
@@ -93,10 +114,14 @@
       </div>
 
       <h2>Últimas valoraciones</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="exportarValoraciones()">⬇ Exportar a CSV (Excel)</button>
+        <button class="peligro" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="eliminarTodasValoraciones()">🗑 Eliminar TODAS</button>
+      </div>
       <div class="tabla-envoltura">
         <table>
           <thead>
-            <tr><th>Fecha</th><th>Conductor</th><th>Pasajero</th><th>⭐ Conductor</th><th>⭐ Servicio</th><th>Comentario</th></tr>
+            <tr><th>Nº viaje</th><th>Fecha y hora</th><th>Conductor</th><th>Pasajero</th><th>⭐ Conductor</th><th>⭐ Servicio</th><th>Comentario</th><th></th></tr>
           </thead>
           <tbody id="tabla-valoraciones"></tbody>
         </table>
@@ -136,7 +161,7 @@
     async function cargarPanel() {
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarCategorias()]);
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarCategorias(), cargarServicios()]);
     }
 
     const ETIQUETAS_FOTO = {
@@ -189,6 +214,173 @@
       await Promise.all([cargarConductores(), verFicha(id)]);
     }
 
+    // ---------- Servicios del portal ----------
+    async function cargarServicios() {
+      const r = await fetch('/api/admin/servicios');
+      const { servicios } = await r.json();
+      document.getElementById('tabla-servicios').innerHTML = servicios.map(s => `
+        <tr>
+          <td><input type="number" min="1" value="${s.posicion}" style="width:70px"
+                onchange="cambiarPosicionServicio(${s.id}, this.value)"></td>
+          <td><strong>${escapar(s.nombre)}</strong></td>
+          <td>
+            <select onchange="cambiarEstadoServicio(${s.id}, this.value)">
+              <option value="inactivo" ${s.estado === 'inactivo' ? 'selected' : ''}>Inactivo (oculto)</option>
+              <option value="activo" ${s.estado === 'activo' ? 'selected' : ''}>Activo (público)</option>
+              <option value="interno" ${s.estado === 'interno' ? 'selected' : ''}>Interno (solo admin)</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function crearServicio() {
+      const r = await fetch('/api/admin/servicios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: document.getElementById('nuevo-servicio-nombre').value,
+          posicion: document.getElementById('nuevo-servicio-posicion').value
+        })
+      });
+      const respuesta = await r.json();
+      const m = document.getElementById('mensaje-servicios');
+      if (respuesta.ok) {
+        m.textContent = 'Servicio creado (nace inactivo: actívalo cuando quieras).'; m.className = 'mensaje ok';
+        document.getElementById('nuevo-servicio-nombre').value = '';
+        cargarServicios();
+      } else { m.textContent = respuesta.error; m.className = 'mensaje error'; }
+    }
+
+    async function cambiarEstadoServicio(id, estado) {
+      await fetch('/api/admin/servicios/' + id, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado })
+      });
+    }
+
+    async function cambiarPosicionServicio(id, posicion) {
+      await fetch('/api/admin/servicios/' + id, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ posicion })
+      });
+    }
+
+    // ---------- Foto de una categoría (compresión en el navegador, como la del chofer) ----------
+    function elegirFotoCategoria(id) {
+      const entrada = document.createElement('input');
+      entrada.type = 'file';
+      entrada.accept = 'image/*';
+      entrada.onchange = function () {
+        const archivo = entrada.files && entrada.files[0];
+        if (!archivo) return;
+        const lector = new FileReader();
+        lector.onload = function (evento) {
+          const imagen = new Image();
+          imagen.onload = async function () {
+            const escala = Math.min(1, 600 / imagen.width);
+            const lienzo = document.createElement('canvas');
+            lienzo.width = Math.round(imagen.width * escala);
+            lienzo.height = Math.round(imagen.height * escala);
+            lienzo.getContext('2d').drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+            const r = await fetch('/api/admin/categorias/' + id + '/foto', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ foto: lienzo.toDataURL('image/jpeg', 0.8) })
+            });
+            if ((await r.json()).ok) { alert('Foto de la categoría guardada. 📷'); cargarCategorias(); }
+            else alert('No se pudo guardar la foto (¿demasiado grande?).');
+          };
+          imagen.src = evento.target.result;
+        };
+        lector.readAsDataURL(archivo);
+      };
+      entrada.click();
+    }
+
+    // ---------- Conductores: contacto, nombre, eliminación ----------
+    async function cambiarContacto(id, permite) {
+      await fetch('/api/admin/conductores/' + id + '/contacto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permite })
+      });
+    }
+
+    async function contactoGlobal(permite) {
+      if (!confirm(permite
+        ? '¿Activar el botón de contacto para TODOS los conductores?'
+        : '¿Quitar el botón de contacto a TODOS los conductores?')) return;
+      await fetch('/api/admin/conductores-contacto-global', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permite })
+      });
+      cargarConductores();
+    }
+
+    async function editarNombreConductor(id, actual) {
+      const nombre = prompt('Nombre correcto del conductor:', actual);
+      if (nombre === null || !nombre.trim()) return;
+      await fetch('/api/admin/conductores/' + id + '/nombre', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre })
+      });
+      cargarConductores();
+    }
+
+    async function eliminarConductor(id, nombre) {
+      if (!confirm('⚠️ Vas a ELIMINAR al conductor "' + nombre + '" definitivamente.\nSus viajes pasados quedarán sin conductor asignado.\n\n¿Seguro?')) return;
+      await fetch('/api/admin/conductores/' + id, { method: 'DELETE' });
+      await Promise.all([cargarResumen(), cargarConductores()]);
+    }
+
+    async function eliminarPasajero(id, nombre) {
+      if (!confirm('⚠️ Vas a ELIMINAR al pasajero "' + nombre + '" definitivamente, junto con sus valoraciones.\n\n¿Seguro?')) return;
+      await fetch('/api/admin/pasajeros/' + id, { method: 'DELETE' });
+      await Promise.all([cargarResumen(), cargarPasajeros(), cargarValoraciones(), cargarConductores()]);
+    }
+
+    // ---------- Valoraciones: eliminar y exportar ----------
+    let ultimasValoraciones = [];
+
+    async function eliminarValoracion(id) {
+      if (!confirm('¿Eliminar esta valoración?')) return;
+      await fetch('/api/admin/valoraciones/' + id, { method: 'DELETE' });
+      await Promise.all([cargarValoraciones(), cargarConductores()]);
+    }
+
+    async function eliminarTodasValoraciones() {
+      if (!confirm('⚠️ Vas a eliminar TODAS las valoraciones. Esta acción no se puede deshacer.\n\n¿Seguro?')) return;
+      if (!confirm('Última confirmación: ¿borrar TODAS las valoraciones?')) return;
+      await fetch('/api/admin/valoraciones', { method: 'DELETE' });
+      await Promise.all([cargarValoraciones(), cargarConductores()]);
+    }
+
+    function exportarValoraciones() {
+      if (!ultimasValoraciones.length) { alert('No hay valoraciones que exportar.'); return; }
+      const limpiar = t => '"' + String(t == null ? '' : t).replace(/"/g, '""') + '"';
+      const filas = [
+        ['Nº viaje', 'Fecha', 'Hora', 'Conductor', 'Nº taxi', 'Pasajero', 'Estrellas conductor', 'Estrellas servicio', 'Comentario'].join(';')
+      ];
+      ultimasValoraciones.forEach(v => {
+        const fecha = new Date(v.creado_en);
+        filas.push([
+          v.viaje_id,
+          fecha.toLocaleDateString('es-ES'),
+          fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+          limpiar(v.conductor || ''),
+          limpiar(v.numero_taxi || ''),
+          limpiar(v.pasajero),
+          v.estrellas_conductor,
+          v.estrellas_servicio,
+          limpiar(v.comentario || '')
+        ].join(';'));
+      });
+      const blob = new Blob(['\ufeff' + filas.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const enlace = document.createElement('a');
+      enlace.href = URL.createObjectURL(blob);
+      enlace.download = 'valoraciones-taxi-guanche.csv';
+      enlace.click();
+    }
+
     async function cargarCategorias() {
       const r = await fetch('/api/admin/categorias');
       const { categorias } = await r.json();
@@ -199,6 +391,10 @@
           <td>${escapar(cat.capacidad_maletas)}</td>
           <td>${cat.limite_sillas}</td>
           <td style="white-space:normal">${escapar(cat.descripcion || '')}</td>
+          <td>
+            ${cat.tiene_foto ? '✅' : '—'}
+            <button class="secundario" style="margin-top:0;padding:6px 10px;font-size:0.8rem" onclick="elegirFotoCategoria(${cat.id})">📷 ${cat.tiene_foto ? 'Cambiar' : 'Subir'}</button>
+          </td>
           <td><span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span></td>
           <td>
             <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
@@ -225,14 +421,17 @@
         cuerpo.innerHTML = '<tr><td colspan="6">Todavía no hay valoraciones. Aparecerán aquí cuando los pasajeros valoren sus viajes.</td></tr>';
         return;
       }
+      ultimasValoraciones = valoraciones; // guardadas para la exportación
       cuerpo.innerHTML = valoraciones.map(v => `
         <tr>
-          <td>${new Date(v.creado_en).toLocaleDateString('es-ES')}</td>
+          <td><strong>#${v.viaje_id}</strong></td>
+          <td>${new Date(v.creado_en).toLocaleDateString('es-ES')} ${new Date(v.creado_en).toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}</td>
           <td>${escapar(v.conductor || '—')}${v.numero_taxi ? ' (nº ' + escapar(v.numero_taxi) + ')' : ''}</td>
           <td>${escapar(v.pasajero)}</td>
           <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_conductor)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_conductor)}</span></span></td>
           <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_servicio)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_servicio)}</span></span></td>
           <td style="white-space:normal;max-width:280px">${escapar(v.comentario || '')}</td>
+          <td><button class="peligro" style="margin-top:0;padding:5px 10px;font-size:0.78rem" onclick="eliminarValoracion(${v.id})">🗑</button></td>
         </tr>
       `).join('');
     }
@@ -282,7 +481,7 @@
       const { conductores } = await r.json();
       const cuerpo = document.getElementById('tabla-conductores');
       if (conductores.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="10">Todavía no hay conductores registrados.</td></tr>';
+        cuerpo.innerHTML = '<tr><td colspan="11">Todavía no hay conductores registrados.</td></tr>';
         return;
       }
       cuerpo.innerHTML = conductores.map(c => `
@@ -294,6 +493,7 @@
           <td>${escapar(c.isla)}</td>
           <td>${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}</td>
           <td>${c.media_estrellas ? '<span class="estrellas-ambar">★</span> <strong>' + c.media_estrellas + '</strong> <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
+          <td><label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400"><input type="checkbox" style="width:auto" ${c.permite_contacto !== false ? 'checked' : ''} onchange="cambiarContacto(${c.id}, this.checked)"> permitido</label></td>
           <td>
             <select onchange="cambiarTipo(${c.id}, this.value)">
               <option value="externo" ${c.tipo === 'externo' ? 'selected' : ''}>Externo</option>
@@ -303,6 +503,8 @@
           <td><span class="etiqueta ${c.estado}">${c.estado}</span></td>
           <td>
             <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="verFicha(${c.id})">📋 Ficha</button>
+            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="editarNombreConductor(${c.id}, '${escapar(c.nombre).replace(/'/g, "\\'")}')">✏️</button>
+            <button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="eliminarConductor(${c.id}, '${escapar(c.nombre).replace(/'/g, "\\'")}')">🗑</button>
             ${c.estado !== 'aprobado' ? `<button style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'aprobado')">Aprobar</button>` : ''}
             ${c.estado !== 'suspendido' ? `<button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'suspendido')">Suspender</button>` : ''}
           </td>
@@ -345,6 +547,8 @@
           <td>
             <button class="${p.activo ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
               onclick="cambiarActivo(${p.id}, ${!p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
+            <button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
+              onclick="eliminarPasajero(${p.id}, '${escapar(p.nombre).replace(/'/g, "\\'")}')">🗑</button>
           </td>
         </tr>
       `).join('');

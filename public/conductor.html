@@ -261,6 +261,7 @@
         document.getElementById('tarjeta-trabajo').classList.add('oculto');
         document.getElementById('tarjeta-viaje-conductor').classList.remove('oculto');
         document.getElementById('detalle-viaje-conductor').innerHTML =
+          '<strong>Viaje nº ' + viaje.id + '</strong><br>' +
           '<strong>Pasajero:</strong> ' + viaje.pasajero_nombre + '<br>' +
           '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
           '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
