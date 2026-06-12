@@ -53,7 +53,7 @@
           <thead>
             <tr>
               <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Isla</th>
-              <th>Tipo</th><th>Estado</th><th>Acciones</th>
+              <th>Valoración</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody id="tabla-conductores"></tbody>
@@ -67,6 +67,16 @@
             <tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Alta</th><th>Estado</th><th>Acciones</th></tr>
           </thead>
           <tbody id="tabla-pasajeros"></tbody>
+        </table>
+      </div>
+
+      <h2>Últimas valoraciones</h2>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Fecha</th><th>Conductor</th><th>Pasajero</th><th>⭐ Conductor</th><th>⭐ Servicio</th><th>Comentario</th></tr>
+          </thead>
+          <tbody id="tabla-valoraciones"></tbody>
         </table>
       </div>
 
@@ -104,7 +114,27 @@
     async function cargarPanel() {
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes()]);
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones()]);
+    }
+
+    async function cargarValoraciones() {
+      const r = await fetch('/api/admin/valoraciones');
+      const { valoraciones } = await r.json();
+      const cuerpo = document.getElementById('tabla-valoraciones');
+      if (valoraciones.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6">Todavía no hay valoraciones. Aparecerán aquí cuando los pasajeros valoren sus viajes.</td></tr>';
+        return;
+      }
+      cuerpo.innerHTML = valoraciones.map(v => `
+        <tr>
+          <td>${new Date(v.creado_en).toLocaleDateString('es-ES')}</td>
+          <td>${escapar(v.conductor || '—')}${v.numero_taxi ? ' (nº ' + escapar(v.numero_taxi) + ')' : ''}</td>
+          <td>${escapar(v.pasajero)}</td>
+          <td>${'★'.repeat(v.estrellas_conductor)}${'☆'.repeat(5 - v.estrellas_conductor)}</td>
+          <td>${'★'.repeat(v.estrellas_servicio)}${'☆'.repeat(5 - v.estrellas_servicio)}</td>
+          <td style="white-space:normal;max-width:280px">${escapar(v.comentario || '')}</td>
+        </tr>
+      `).join('');
     }
 
     async function cargarAjustes() {
@@ -152,7 +182,7 @@
       const { conductores } = await r.json();
       const cuerpo = document.getElementById('tabla-conductores');
       if (conductores.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="7">Todavía no hay conductores registrados.</td></tr>';
+        cuerpo.innerHTML = '<tr><td colspan="8">Todavía no hay conductores registrados.</td></tr>';
         return;
       }
       cuerpo.innerHTML = conductores.map(c => `
@@ -161,6 +191,7 @@
           <td>${escapar(c.email)}<br>${escapar(c.telefono)}</td>
           <td>${escapar(c.vehiculo_marca)} ${escapar(c.vehiculo_modelo)}<br>${escapar(c.matricula)} · ${c.plazas} plazas · Nº taxi: ${escapar(c.numero_taxi || '—')}</td>
           <td>${escapar(c.isla)}</td>
+          <td>${c.media_estrellas ? '⭐ ' + c.media_estrellas + ' <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
           <td>
             <select onchange="cambiarTipo(${c.id}, this.value)">
               <option value="externo" ${c.tipo === 'externo' ? 'selected' : ''}>Externo</option>
