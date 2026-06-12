@@ -182,6 +182,32 @@ async function inicializarBaseDeDatos() {
     await pool.query(`ALTER TABLE conductores ADD COLUMN IF NOT EXISTS ${columna};`);
   }
 
+  // Portal de servicios de la super-app (banners de la pantalla de inicio)
+  // estado: 'inactivo' (oculto) | 'activo' (público) | 'interno' (solo lo ve el admin, para pruebas)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS servicios (
+      id SERIAL PRIMARY KEY,
+      nombre TEXT UNIQUE NOT NULL,
+      posicion INTEGER NOT NULL DEFAULT 99,
+      estado TEXT NOT NULL DEFAULT 'inactivo',
+      creado_en TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    INSERT INTO servicios (nombre, posicion, estado) VALUES
+      ('Alquiler de Taxi', 1, 'activo'),
+      ('Envíos y Paquetería', 2, 'interno'),
+      ('Comida a Domicilio', 3, 'interno'),
+      ('Recados', 4, 'interno')
+    ON CONFLICT (nombre) DO NOTHING;
+  `);
+
+  // Foto de cada categoría de vehículo (las sube el admin, no los taxistas)
+  await pool.query(`ALTER TABLE categorias_vehiculos ADD COLUMN IF NOT EXISTS foto TEXT;`);
+
+  // Interruptor del botón "Contactar al chofer" (por conductor, gestionado por el admin)
+  await pool.query(`ALTER TABLE conductores ADD COLUMN IF NOT EXISTS permite_contacto BOOLEAN DEFAULT TRUE;`);
+
   // Cancelaciones y valoraciones
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS asignado_en TIMESTAMPTZ;`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS cargo_cancelacion NUMERIC(6,2) DEFAULT 0;`);
@@ -328,6 +354,17 @@ app.get('/api/pasajero/me', requierePasajero, async (req, res) => {
 // ------------------------------------------------------------
 // 4. RUTAS DE CONDUCTORES
 // ------------------------------------------------------------
+
+// Servicios del portal de inicio: los activos para todos; los internos solo si eres admin
+app.get('/api/servicios', async (req, res) => {
+  const esAdmin = (req.session.rol === 'admin');
+  const { rows } = await pool.query(
+    esAdmin
+      ? `SELECT id, nombre, posicion, estado FROM servicios WHERE estado IN ('activo','interno') ORDER BY posicion, id`
+      : `SELECT id, nombre, posicion, estado FROM servicios WHERE estado = 'activo' ORDER BY posicion, id`
+  );
+  res.json({ servicios: rows, vista_admin: esAdmin });
+});
 
 // Catálogo para el formulario de alta: categorías activas y marcas con sus modelos
 app.get('/api/catalogo', async (req, res) => {
@@ -541,7 +578,7 @@ app.get('/api/admin/resumen', requiereAdmin, async (req, res) => {
 app.get('/api/admin/conductores', requiereAdmin, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT c.id, c.nombre, c.email, c.telefono, c.vehiculo_marca, c.vehiculo_modelo, c.matricula,
-            c.plazas, c.isla, c.tipo, c.estado, c.numero_taxi, c.foto_estado, c.creado_en,
+            c.plazas, c.isla, c.tipo, c.estado, c.numero_taxi, c.foto_estado, c.permite_contacto, c.creado_en,
             cat.nombre AS categoria,
             ROUND(AVG(va.estrellas_conductor), 1) AS media_estrellas,
             COUNT(va.id)::int AS total_valoraciones
@@ -629,10 +666,54 @@ app.post('/api/admin/conductores/:id/foto', requiereAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Gestión de servicios del portal (crear, posición, estado)
+app.get('/api/admin/servicios', requiereAdmin, async (req, res) => {
+  const { rows } = await pool.query(`SELECT id, nombre, posicion, estado FROM servicios ORDER BY posicion, id`);
+  res.json({ servicios: rows });
+});
+
+app.post('/api/admin/servicios', requiereAdmin, async (req, res) => {
+  const nombre = (req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El servicio necesita un nombre.' });
+  try {
+    await pool.query(
+      `INSERT INTO servicios (nombre, posicion, estado) VALUES ($1, $2, 'inactivo')`,
+      [nombre, parseInt(req.body.posicion, 10) || 99]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Ya existe un servicio con ese nombre.' });
+    throw err;
+  }
+});
+
+app.post('/api/admin/servicios/:id', requiereAdmin, async (req, res) => {
+  const estado = req.body.estado;
+  if (estado && !['inactivo', 'activo', 'interno'].includes(estado)) {
+    return res.status(400).json({ error: 'Estado no válido.' });
+  }
+  if (estado) await pool.query('UPDATE servicios SET estado = $1 WHERE id = $2', [estado, req.params.id]);
+  if (req.body.posicion !== undefined) {
+    await pool.query('UPDATE servicios SET posicion = $1 WHERE id = $2', [parseInt(req.body.posicion, 10) || 99, req.params.id]);
+  }
+  res.json({ ok: true });
+});
+
+// Foto de una categoría de vehículo (la sube el admin)
+app.post('/api/admin/categorias/:id/foto', requiereAdmin, async (req, res) => {
+  const { foto } = req.body;
+  if (!foto || !foto.startsWith('data:image/') || foto.length > 700000) {
+    return res.status(400).json({ error: 'La imagen no es válida o pesa demasiado.' });
+  }
+  await pool.query('UPDATE categorias_vehiculos SET foto = $1 WHERE id = $2', [foto, req.params.id]);
+  res.json({ ok: true });
+});
+
 // Gestión de categorías: verlas todas y activarlas/desactivarlas
 app.get('/api/admin/categorias', requiereAdmin, async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT id, nombre, capacidad_pasajeros, capacidad_maletas, limite_sillas, descripcion, activa
+    `SELECT id, nombre, capacidad_pasajeros, capacidad_maletas, limite_sillas, descripcion, activa,
+            (foto IS NOT NULL) AS tiene_foto
      FROM categorias_vehiculos ORDER BY id`
   );
   res.json({ categorias: rows });
@@ -646,9 +727,53 @@ app.post('/api/admin/categorias/:id/activa', requiereAdmin, async (req, res) => 
   res.json({ ok: true });
 });
 
+// Editar el nombre de un conductor (errores de escritura)
+app.post('/api/admin/conductores/:id/nombre', requiereAdmin, async (req, res) => {
+  const nombre = (req.body.nombre || '').trim();
+  if (!nombre) return res.status(400).json({ error: 'El nombre no puede quedar vacío.' });
+  await pool.query('UPDATE conductores SET nombre = $1 WHERE id = $2', [nombre, req.params.id]);
+  res.json({ ok: true });
+});
+
+// Activar/desactivar el botón "Contactar al chofer": uno o todos
+app.post('/api/admin/conductores/:id/contacto', requiereAdmin, async (req, res) => {
+  await pool.query('UPDATE conductores SET permite_contacto = $1 WHERE id = $2', [!!req.body.permite, req.params.id]);
+  res.json({ ok: true });
+});
+app.post('/api/admin/conductores-contacto-global', requiereAdmin, async (req, res) => {
+  await pool.query('UPDATE conductores SET permite_contacto = $1', [!!req.body.permite]);
+  res.json({ ok: true });
+});
+
+// Eliminar un conductor (limpieza de pruebas): sus viajes quedan sin conductor asignado
+app.delete('/api/admin/conductores/:id', requiereAdmin, async (req, res) => {
+  await pool.query(`UPDATE viajes SET conductor_id = NULL WHERE conductor_id = $1`, [req.params.id]);
+  await pool.query(`DELETE FROM conductores WHERE id = $1`, [req.params.id]);
+  res.json({ ok: true });
+});
+
+// Eliminar un pasajero (limpieza): se borran sus valoraciones y sus viajes quedan anónimos
+app.delete('/api/admin/pasajeros/:id', requiereAdmin, async (req, res) => {
+  await pool.query(`DELETE FROM valoraciones WHERE pasajero_id = $1`, [req.params.id]);
+  await pool.query(`UPDATE viajes SET estado = 'cancelado' WHERE pasajero_id = $1 AND estado IN ('solicitado','asignado','en_curso')`, [req.params.id]);
+  await pool.query(`UPDATE viajes SET pasajero_id = NULL WHERE pasajero_id = $1`, [req.params.id]);
+  await pool.query(`DELETE FROM pasajeros WHERE id = $1`, [req.params.id]);
+  res.json({ ok: true });
+});
+
+// Eliminar valoraciones: una concreta o todas (limpieza de pruebas)
+app.delete('/api/admin/valoraciones/:id', requiereAdmin, async (req, res) => {
+  await pool.query(`DELETE FROM valoraciones WHERE id = $1`, [req.params.id]);
+  res.json({ ok: true });
+});
+app.delete('/api/admin/valoraciones', requiereAdmin, async (req, res) => {
+  await pool.query(`DELETE FROM valoraciones`);
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/valoraciones', requiereAdmin, async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT va.estrellas_conductor, va.estrellas_servicio, va.comentario, va.creado_en,
+    `SELECT va.id, va.viaje_id, va.estrellas_conductor, va.estrellas_servicio, va.comentario, va.creado_en,
             c.nombre AS conductor, c.numero_taxi, p.nombre AS pasajero
      FROM valoraciones va
      JOIN viajes v ON v.id = va.viaje_id
@@ -742,7 +867,7 @@ app.post('/api/pasajero/viaje', requierePasajero, async (req, res) => {
 app.get('/api/pasajero/viaje-actual', requierePasajero, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT v.*, c.nombre AS conductor_nombre, c.vehiculo_marca, c.vehiculo_modelo, c.matricula,
-            c.numero_taxi,
+            c.numero_taxi, c.permite_contacto AS contacto_permitido,
             CASE WHEN c.foto_estado = 'aprobada' THEN c.foto END AS conductor_foto,
             c.lat AS taxi_lat, c.lng AS taxi_lng, c.posicion_en AS taxi_posicion_en
      FROM viajes v
