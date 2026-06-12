@@ -34,6 +34,19 @@
       <h2>Resumen</h2>
       <div class="cifras" id="cifras"></div>
 
+      <h2>Ajustes de cancelación</h2>
+      <div class="tarjeta" style="max-width:520px">
+        <label style="display:flex;align-items:center;gap:8px;margin-top:0">
+          <input type="checkbox" id="ajuste-activa" style="width:auto"> Cobrar por cancelación tardía (activable/desactivable)
+        </label>
+        <label for="ajuste-minutos">Minutos gratuitos tras la asignación</label>
+        <input id="ajuste-minutos" type="number" min="0" max="60">
+        <label for="ajuste-importe">Importe del cargo (€)</label>
+        <input id="ajuste-importe" type="number" min="0" step="0.5">
+        <button onclick="guardarAjustes()">Guardar ajustes</button>
+        <div id="mensaje-ajustes" class="mensaje"></div>
+      </div>
+
       <h2>Conductores</h2>
       <div class="tabla-envoltura">
         <table>
@@ -91,7 +104,30 @@
     async function cargarPanel() {
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros()]);
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes()]);
+    }
+
+    async function cargarAjustes() {
+      const r = await fetch('/api/admin/ajustes');
+      const ajustes = await r.json();
+      document.getElementById('ajuste-activa').checked = ajustes.activa;
+      document.getElementById('ajuste-minutos').value = ajustes.minutos_gratis;
+      document.getElementById('ajuste-importe').value = ajustes.importe;
+    }
+
+    async function guardarAjustes() {
+      const r = await fetch('/api/admin/ajustes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activa: document.getElementById('ajuste-activa').checked,
+          minutos_gratis: document.getElementById('ajuste-minutos').value,
+          importe: document.getElementById('ajuste-importe').value
+        })
+      });
+      const m = document.getElementById('mensaje-ajustes');
+      if ((await r.json()).ok) { m.textContent = 'Ajustes guardados. ✓'; m.className = 'mensaje ok'; }
+      else { m.textContent = 'No se pudieron guardar.'; m.className = 'mensaje error'; }
     }
 
     async function cargarResumen() {

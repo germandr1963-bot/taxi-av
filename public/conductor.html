@@ -165,6 +165,7 @@
     let disponible = false;
     let sondeo = null;
     let viajeActivo = null;
+    let finalizadoPorMi = false; // para distinguir 'yo terminé el viaje' de 'me lo cancelaron'
 
     function pintarBotonDisponible() {
       const boton = document.getElementById('boton-disponible');
@@ -201,7 +202,14 @@
       enviarPosicion();
       const r = await fetch('/api/conductor/viaje-actual');
       const { viaje } = await r.json();
+      const teniaViaje = viajeActivo;
       viajeActivo = viaje;
+
+      // Si llevaba un viaje y ha desaparecido sin que él lo finalizara: el pasajero canceló
+      if (teniaViaje && !viaje && !finalizadoPorMi) {
+        alert('⚠️ VIAJE CANCELADO\n\nEl pasajero ha cancelado el viaje. No continúes hacia la recogida.');
+      }
+      finalizadoPorMi = false;
 
       if (viaje) {
         document.getElementById('tarjeta-trabajo').classList.add('oculto');
@@ -311,6 +319,7 @@
       const r = await fetch('/api/conductor/viaje/' + viajeActivo.id + '/finalizar', { method: 'POST' });
       const respuesta = await r.json();
       if (respuesta.ok) {
+        finalizadoPorMi = true;
         alert('¡Viaje completado! Buen trabajo. 🏁');
         refrescarTrabajo();
       } else {

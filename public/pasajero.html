@@ -45,6 +45,9 @@
     #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
+    .fila-estrellas span { color: #C9D4DC; }
+    .fila-estrellas span.encendida { color: var(--luminoso); }
     .foto-conductor { width: 74px; height: 74px; object-fit: cover; border-radius: 50%; border: 2px solid var(--borde); float: right; margin-left: 10px; }
     footer.pie { max-width: 920px; margin: 30px auto 0; padding: 18px 16px; border-top: 1px solid var(--borde); font-size: 0.82rem; color: #5a6c79; text-align: center; }
     footer.pie a { color: var(--costa); text-decoration: none; margin: 0 8px; }
@@ -137,6 +140,22 @@
 
         <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
         <button id="boton-pedir" class="oculto" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
+      </div>
+
+      <!-- ===== Valoración del viaje (opcional, al terminar) ===== -->
+      <div class="tarjeta oculto" id="tarjeta-valoracion">
+        <h2 style="margin-top:0">¿Qué tal tu viaje? 🚖</h2>
+        <p class="sub">Tu valoración es opcional y nos ayuda a mejorar.</p>
+        <label>Tu conductor</label>
+        <div id="estrellas-conductor" class="fila-estrellas"></div>
+        <label>El servicio</label>
+        <div id="estrellas-servicio" class="fila-estrellas"></div>
+        <label for="comentario-valoracion">Comentario (opcional)</label>
+        <input id="comentario-valoracion" type="text" maxlength="500" placeholder="Cuéntanos tu experiencia">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="enviarValoracion()">Enviar valoración</button>
+          <button class="secundario" onclick="location.reload()">Omitir</button>
+        </div>
       </div>
 
       <!-- ===== Viaje en marcha (sustituye al formulario cuando hay un viaje activo) ===== -->
@@ -260,10 +279,14 @@
       const elemento = document.getElementById(id);
       if (!elemento) return;
       if (id === 'mapa') {
-        // Posición medida: el mapa queda arriba con un margen justo,
-        // dejando visibles debajo los botones de confirmar (en cualquier móvil)
-        const arriba = elemento.getBoundingClientRect().top + window.scrollY - 85;
-        window.scrollTo({ top: arriba, behavior: 'smooth' });
+        // Posición medida TRAS asentarse la página (dos respiros del navegador),
+        // para que ocultar listas o textos no desplace el cálculo
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            const arriba = elemento.getBoundingClientRect().top + window.scrollY - 85;
+            window.scrollTo({ top: arriba, behavior: 'smooth' });
+          });
+        });
       } else {
         elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -350,9 +373,10 @@
           const li = document.createElement('li');
           li.textContent = lugar.display_name;
           li.onclick = function () {
-            ponerMarcador(cual, parseFloat(lugar.lat), parseFloat(lugar.lon), lugar.display_name);
-            document.getElementById('direccion-' + cual).value = lugar.display_name.split(',').slice(0, 2).join(',');
+            // Primero se esconde la lista (la página se asienta) y DESPUÉS se mide el desplazamiento
             lista.classList.add('oculto');
+            document.getElementById('direccion-' + cual).value = lugar.display_name.split(',').slice(0, 2).join(',');
+            ponerMarcador(cual, parseFloat(lugar.lat), parseFloat(lugar.lon), lugar.display_name);
           };
           lista.appendChild(li);
         });
@@ -664,27 +688,105 @@
       if (!sondeoViaje) sondeoViaje = setInterval(actualizarViaje, 6000);
     }
 
+    let ultimoEstadoConocido = null;
+
     async function actualizarViaje() {
       const r = await fetch('/api/pasajero/viaje-actual');
       const { viaje } = await r.json();
       if (viaje) {
+        ultimoEstadoConocido = viaje.estado;
         mostrarViaje(viaje);
       } else {
-        // El viaje terminó (o fue finalizado por el conductor): volver al inicio
         clearInterval(sondeoViaje);
         sondeoViaje = null;
-        alert('Tu viaje ha terminado. ¡Gracias por viajar con nosotros! 🚖');
-        location.reload();
+        if (ultimoEstadoConocido === 'en_curso') {
+          // El conductor marcó el viaje como terminado: ofrecer la valoración
+          mostrarValoracion();
+        } else {
+          alert('Tu viaje ha terminado. ¡Gracias por viajar con nosotros! 🚖');
+          location.reload();
+        }
       }
+    }
+
+    // ============================================================
+    // VALORACIÓN DEL VIAJE — opcional: conductor y servicio (1-5) + comentario
+    // ============================================================
+    const estrellas = { conductor: 0, servicio: 0 };
+
+    function pintarEstrellas(cual) {
+      const fila = document.getElementById('estrellas-' + cual);
+      fila.innerHTML = '';
+      for (let n = 1; n <= 5; n++) {
+        const estrella = document.createElement('span');
+        estrella.textContent = '★';
+        if (n <= estrellas[cual]) estrella.className = 'encendida';
+        estrella.onclick = function () { estrellas[cual] = n; pintarEstrellas(cual); };
+        fila.appendChild(estrella);
+      }
+    }
+
+    function mostrarValoracion() {
+      document.getElementById('tarjeta-viaje').classList.add('oculto');
+      document.getElementById('tarjeta-pedir').classList.add('oculto');
+      document.getElementById('tarjeta-valoracion').classList.remove('oculto');
+      instruccion('🏁 Viaje completado. ¡Gracias por viajar con Taxi - Guanche!');
+      pintarEstrellas('conductor');
+      pintarEstrellas('servicio');
+    }
+
+    async function enviarValoracion() {
+      if (!estrellas.conductor || !estrellas.servicio) {
+        alert('Marca las estrellas del conductor y del servicio (o pulsa Omitir).');
+        return;
+      }
+      const id = document.getElementById('boton-cancelar').dataset.viajeId;
+      const r = await fetch('/api/pasajero/viaje/' + id + '/valorar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estrellas_conductor: estrellas.conductor,
+          estrellas_servicio: estrellas.servicio,
+          comentario: document.getElementById('comentario-valoracion').value
+        })
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) { alert('¡Gracias por tu valoración! ⭐'); location.reload(); }
+      else alert(respuesta.error);
     }
 
     async function cancelarViaje() {
       const id = document.getElementById('boton-cancelar').dataset.viajeId;
-      if (!confirm('¿Seguro que quieres cancelar este viaje?')) return;
+
+      // Antes de nada: informar con claridad de si la cancelación tiene coste
+      let pregunta = '¿Seguro que quieres cancelar este viaje?';
+      try {
+        const politica = await (await fetch('/api/ajustes/cancelacion')).json();
+        const va = await (await fetch('/api/pasajero/viaje-actual')).json();
+        if (politica.activa && va.viaje && va.viaje.estado === 'asignado' && va.viaje.asignado_en) {
+          const minutos = (Date.now() - new Date(va.viaje.asignado_en).getTime()) / 60000;
+          if (minutos > politica.minutos_gratis) {
+            pregunta = '⚠️ Tu conductor lleva más de ' + politica.minutos_gratis +
+              ' minutos en camino. Si cancelas ahora se aplicará un cargo de ' +
+              politica.importe.toFixed(2) + ' €.\n\n¿Seguro que quieres cancelar?';
+          } else {
+            pregunta = 'Cancelar ahora es gratuito (dentro de los primeros ' +
+              politica.minutos_gratis + ' minutos).\n\n¿Seguro que quieres cancelar?';
+          }
+        }
+      } catch (e) { /* sin datos de la política: pregunta genérica */ }
+
+      if (!confirm(pregunta)) return;
       const r = await fetch('/api/pasajero/viaje/' + id + '/cancelar', { method: 'POST' });
       const respuesta = await r.json();
-      if (respuesta.ok) location.reload();
-      else alert(respuesta.error);
+      if (respuesta.ok) {
+        if (respuesta.cargo > 0) {
+          alert('Viaje cancelado. Se ha registrado un cargo de ' + respuesta.cargo.toFixed(2) + ' € por cancelación tardía.');
+        }
+        location.reload();
+      } else {
+        alert(respuesta.error);
+      }
     }
 
     async function comprobarViajeActivo() {
