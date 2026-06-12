@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Administración · Taxi-AV</title>
   <link rel="stylesheet" href="estilos.css">
+  <style>
+    /* El panel de administración vive en PC: ancho completo y tablas sin recortes */
+    main { max-width: 1340px; }
+    .tabla-envoltura table { font-size: 0.84rem; }
+    .tabla-envoltura th, .tabla-envoltura td { white-space: normal; }
+    .estrellas-ambar { color: var(--luminoso); letter-spacing: 1px; }
+    .estrellas-ambar .vacia { color: #C9D4DC; }
+  </style>
 </head>
 <body>
   <header class="app">
@@ -130,8 +138,8 @@
           <td>${new Date(v.creado_en).toLocaleDateString('es-ES')}</td>
           <td>${escapar(v.conductor || '—')}${v.numero_taxi ? ' (nº ' + escapar(v.numero_taxi) + ')' : ''}</td>
           <td>${escapar(v.pasajero)}</td>
-          <td>${'★'.repeat(v.estrellas_conductor)}${'☆'.repeat(5 - v.estrellas_conductor)}</td>
-          <td>${'★'.repeat(v.estrellas_servicio)}${'☆'.repeat(5 - v.estrellas_servicio)}</td>
+          <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_conductor)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_conductor)}</span></span></td>
+          <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_servicio)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_servicio)}</span></span></td>
           <td style="white-space:normal;max-width:280px">${escapar(v.comentario || '')}</td>
         </tr>
       `).join('');
@@ -191,7 +199,7 @@
           <td>${escapar(c.email)}<br>${escapar(c.telefono)}</td>
           <td>${escapar(c.vehiculo_marca)} ${escapar(c.vehiculo_modelo)}<br>${escapar(c.matricula)} · ${c.plazas} plazas · Nº taxi: ${escapar(c.numero_taxi || '—')}</td>
           <td>${escapar(c.isla)}</td>
-          <td>${c.media_estrellas ? '⭐ ' + c.media_estrellas + ' <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
+          <td>${c.media_estrellas ? '<span class="estrellas-ambar">★</span> <strong>' + c.media_estrellas + '</strong> <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
           <td>
             <select onchange="cambiarTipo(${c.id}, this.value)">
               <option value="externo" ${c.tipo === 'externo' ? 'selected' : ''}>Externo</option>
