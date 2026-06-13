@@ -69,6 +69,8 @@
       font-size: 0.95rem; cursor: pointer;
     }
     .extra-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; }
+    .extra-item.extra-deshabilitado { opacity: 0.6; cursor: default; }
+    .nota-extra-restringido { font-size: 0.78rem; color: #8a96a0; margin-top: 2px; }
     .precio-extra { margin-left: auto; font-size: 0.85rem; color: var(--costa); font-weight: 600; white-space: nowrap; }
     .bolsa-item {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -203,7 +205,7 @@
           <div class="bloque-extra">
             <label class="extra-item">
               <input type="checkbox" id="pedido-otra-persona" onchange="alternarPedidoOtraPersona()">
-              👤 Hacer un pedido para otra persona
+              Hacer un pedido para otra persona
             </label>
             <div id="datos-otra-persona" class="oculto" style="margin-top:8px">
               <label for="otra-persona-nombre">Nombre de la persona</label>
@@ -786,13 +788,21 @@
         cont.innerHTML = '<p class="sub">No hay extras disponibles para este vehículo.</p>';
         return;
       }
-      cont.innerHTML = extrasDisponibles.map(ex => `
-        <label class="extra-item">
-          <input type="checkbox" onchange="alternarExtra(${ex.id})" ${extrasSeleccionados.has(ex.id) ? 'checked' : ''}>
-          ${escapar(ex.nombre)}
-          ${Number(ex.precio) > 0 ? '<span class="precio-extra">+' + Number(ex.precio).toFixed(2) + ' €</span>' : ''}
-        </label>
-      `).join('');
+      cont.innerHTML = extrasDisponibles.map(ex => {
+        const disponible = ex.disponible_aqui;
+        const nota = (!disponible && ex.categorias_permitidas && ex.categorias_permitidas.length)
+          ? '<div class="nota-extra-restringido">Disponible solo en ' + ex.categorias_permitidas.map(escapar).join(', ') + '</div>'
+          : '';
+        return `
+        <label class="extra-item${disponible ? '' : ' extra-deshabilitado'}">
+          <input type="checkbox" ${disponible ? '' : 'disabled'} onchange="alternarExtra(${ex.id})" ${extrasSeleccionados.has(ex.id) ? 'checked' : ''}>
+          <span>
+            ${escapar(ex.nombre)}
+            ${nota}
+          </span>
+          ${disponible && Number(ex.precio) > 0 ? '<span class="precio-extra">+' + Number(ex.precio).toFixed(2) + ' €</span>' : ''}
+        </label>`;
+      }).join('');
     }
 
     function alternarExtra(id) {

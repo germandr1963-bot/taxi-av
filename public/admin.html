@@ -47,7 +47,7 @@
         <label style="display:flex;align-items:center;gap:8px;margin-top:0">
           <input type="checkbox" id="ajuste-activa" style="width:auto"> Cobrar por cancelación tardía (activable/desactivable)
         </label>
-        <label for="ajuste-minutos">Minutos gratuitos tras la asignación</label>
+        <label for="ajuste-minutos">Minutos de espera al cliente tras la asignación (sin cargo)</label>
         <input id="ajuste-minutos" type="number" min="0" max="60">
         <label for="ajuste-importe">Importe del cargo (€)</label>
         <input id="ajuste-importe" type="number" min="0" step="0.5">
@@ -82,6 +82,7 @@
           <tbody id="tabla-categorias"></tbody>
         </table>
       </div>
+      <button style="margin-top:10px" onclick="nuevaCategoria()">➕ Crear categoría nueva</button>
 
       <!-- Editor de la categoría seleccionada -->
       <div class="tarjeta oculto" id="editor-categoria" style="border:2px solid var(--costa);max-width:560px"></div>
@@ -479,12 +480,32 @@
           <td>
             <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
               onclick="editarCategoria(${cat.id})">✏️ Editar</button>
+            <button class="peligro" style="margin-top:4px;padding:6px 12px;font-size:0.82rem"
+              onclick="eliminarCategoria(${cat.id})">🗑️ Eliminar</button>
           </td>
         </tr>
       `).join('');
     }
 
     let categoriasCache = [];
+
+    function formularioCategoria(cat) {
+      return `
+        <label>Nombre</label>
+        <input id="cat-nombre" type="text" value="${escapar(cat.nombre || '')}">
+        <label>Pasajeros (capacidad)</label>
+        <input id="cat-pasajeros" type="number" min="1" max="12" value="${cat.capacidad_pasajeros || 4}">
+        <label>Maletas (texto libre, ej.: "3 grandes")</label>
+        <input id="cat-maletas" type="text" value="${escapar(cat.capacidad_maletas || '')}">
+        <label>Sillas de bebé (máximo)</label>
+        <input id="cat-sillas" type="number" min="0" max="6" value="${cat.limite_sillas || 0}">
+        <label>Descripción</label>
+        <input id="cat-descripcion" type="text" value="${escapar(cat.descripcion || '')}">
+        <label>Bajada de bandera diurna (€, 6:00-22:00)</label>
+        <input id="cat-bajada-diurna" type="number" step="0.01" min="0" value="${Number(cat.bajada_diurna || 0).toFixed(2)}">
+        <label>Bajada de bandera nocturna (€, 22:00-6:00)</label>
+        <input id="cat-bajada-nocturna" type="number" step="0.01" min="0" value="${Number(cat.bajada_nocturna || 0).toFixed(2)}">`;
+    }
 
     function editarCategoria(id) {
       const cat = categoriasCache.find(x => x.id === id);
@@ -493,20 +514,7 @@
       editor.classList.remove('oculto');
       editor.innerHTML = `
         <h2 style="margin-top:0">✏️ Editar categoría</h2>
-        <label>Nombre</label>
-        <input id="cat-nombre" type="text" value="${escapar(cat.nombre)}">
-        <label>Pasajeros (capacidad)</label>
-        <input id="cat-pasajeros" type="number" min="1" max="12" value="${cat.capacidad_pasajeros}">
-        <label>Maletas (texto libre, ej.: "3 grandes")</label>
-        <input id="cat-maletas" type="text" value="${escapar(cat.capacidad_maletas)}">
-        <label>Sillas de bebé (máximo)</label>
-        <input id="cat-sillas" type="number" min="0" max="6" value="${cat.limite_sillas}">
-        <label>Descripción</label>
-        <input id="cat-descripcion" type="text" value="${escapar(cat.descripcion || '')}">
-        <label>Bajada de bandera diurna (€, 6:00-22:00)</label>
-        <input id="cat-bajada-diurna" type="number" step="0.01" min="0" value="${Number(cat.bajada_diurna).toFixed(2)}">
-        <label>Bajada de bandera nocturna (€, 22:00-6:00)</label>
-        <input id="cat-bajada-nocturna" type="number" step="0.01" min="0" value="${Number(cat.bajada_nocturna).toFixed(2)}">
+        ${formularioCategoria(cat)}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button style="margin-top:10px" onclick="guardarCategoria(${cat.id})">💾 Guardar cambios</button>
           <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
@@ -514,24 +522,48 @@
       editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    function nuevaCategoria() {
+      const editor = document.getElementById('editor-categoria');
+      editor.classList.remove('oculto');
+      editor.innerHTML = `
+        <h2 style="margin-top:0">➕ Nueva categoría</h2>
+        ${formularioCategoria({})}
+        <p class="sub">Nace inactiva y no disponible; actívala desde la tabla cuando esté lista.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button style="margin-top:10px" onclick="guardarCategoria(null)">💾 Crear categoría</button>
+          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
+        </div>`;
+      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
     async function guardarCategoria(id) {
-      const r = await fetch('/api/admin/categorias/' + id + '/editar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: document.getElementById('cat-nombre').value,
-          capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
-          capacidad_maletas: document.getElementById('cat-maletas').value,
-          limite_sillas: document.getElementById('cat-sillas').value,
-          descripcion: document.getElementById('cat-descripcion').value,
-          bajada_diurna: document.getElementById('cat-bajada-diurna').value,
-          bajada_nocturna: document.getElementById('cat-bajada-nocturna').value
-        })
+      const datos = {
+        nombre: document.getElementById('cat-nombre').value,
+        capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
+        capacidad_maletas: document.getElementById('cat-maletas').value,
+        limite_sillas: document.getElementById('cat-sillas').value,
+        descripcion: document.getElementById('cat-descripcion').value,
+        bajada_diurna: document.getElementById('cat-bajada-diurna').value,
+        bajada_nocturna: document.getElementById('cat-bajada-nocturna').value
+      };
+      const url = id ? '/api/admin/categorias/' + id + '/editar' : '/api/admin/categorias';
+      const r = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
       });
       const respuesta = await r.json();
       if (respuesta.ok) {
         document.getElementById('editor-categoria').classList.add('oculto');
         cargarCategorias();
       } else alert(respuesta.error);
+    }
+
+    async function eliminarCategoria(id) {
+      const cat = categoriasCache.find(x => x.id === id);
+      if (!confirm('¿Eliminar la categoría "' + (cat ? cat.nombre : '') + '"? Esta acción no se puede deshacer.')) return;
+      const r = await fetch('/api/admin/categorias/' + id + '/eliminar', { method: 'POST' });
+      const respuesta = await r.json();
+      if (respuesta.ok) cargarCategorias();
+      else alert(respuesta.error);
     }
 
     async function alternarCategoria(id, activa) {
