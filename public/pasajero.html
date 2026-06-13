@@ -56,10 +56,12 @@
     }
     .tarjeta-categoria.seleccionada { border-color: var(--luminoso); box-shadow: 0 0 0 2px var(--luminoso); }
     .tarjeta-categoria img, .tarjeta-categoria-sinfoto {
-      width: 100%; height: 64px; object-fit: cover; border-radius: 8px; background: #EAF4F6;
+      width: 100%; height: 64px; object-fit: cover; border-radius: 8px; background: #fff;
     }
-    .tarjeta-categoria-sinfoto { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
-    .capacidad-categoria { margin-top: 6px; font-size: 0.8rem; color: var(--tinta); }
+    .tarjeta-categoria-sinfoto { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; background: #EAF4F6; }
+    .nombre-categoria { margin-top: 6px; font-weight: 700; font-size: 0.88rem; color: var(--atlantico); }
+    .capacidad-categoria { margin-top: 2px; font-size: 0.78rem; color: var(--tinta); }
+    .precio-categoria { margin-top: 4px; font-size: 0.92rem; font-weight: 700; color: var(--costa); }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
     .fila-estrellas span { color: #C9D4DC; }
@@ -652,13 +654,17 @@
         cont.innerHTML = '<p class="sub">No hay vehículos disponibles en este momento. Inténtalo de nuevo en unos minutos.</p>';
         return;
       }
-      cont.innerHTML = categoriasDisponibles.map(cat => `
+      cont.innerHTML = categoriasDisponibles.map(cat => {
+        const precio = rutaActual ? precioEstimado(rutaActual.km, cat) : null;
+        return `
         <div class="tarjeta-categoria${categoriaSeleccionada && categoriaSeleccionada.id === cat.id ? ' seleccionada' : ''}"
              onclick="elegirCategoria(${cat.id})">
           ${cat.foto ? '<img src="' + cat.foto + '" alt="">' : '<div class="tarjeta-categoria-sinfoto">🚖</div>'}
+          <div class="nombre-categoria">${escapar(cat.nombre)}</div>
           <div class="capacidad-categoria">👤 ${cat.capacidad_pasajeros} · 🧳 ${escapar(cat.capacidad_maletas)}</div>
-        </div>
-      `).join('');
+          ${precio !== null ? '<div class="precio-categoria">~' + precio.toFixed(2) + ' €</div>' : ''}
+        </div>`;
+      }).join('');
     }
 
     function escapar(texto) {
