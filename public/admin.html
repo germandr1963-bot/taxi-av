@@ -322,6 +322,11 @@
         lector.onload = function (evento) {
           const imagen = new Image();
           imagen.onload = async function () {
+            // Esperar a que el navegador termine de decodificar la imagen del todo;
+            // si no, la primera vez el canvas puede salir en blanco/negro.
+            if (imagen.decode) {
+              try { await imagen.decode(); } catch (e) { /* seguimos igualmente */ }
+            }
             const escala = Math.min(1, 600 / imagen.width);
             const lienzo = document.createElement('canvas');
             lienzo.width = Math.round(imagen.width * escala);
