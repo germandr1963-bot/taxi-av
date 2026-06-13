@@ -326,7 +326,12 @@
             const lienzo = document.createElement('canvas');
             lienzo.width = Math.round(imagen.width * escala);
             lienzo.height = Math.round(imagen.height * escala);
-            lienzo.getContext('2d').drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+            const contexto = lienzo.getContext('2d');
+            // JPEG no admite transparencia: si no rellenamos primero, las zonas
+            // transparentes del PNG original se exportan en negro.
+            contexto.fillStyle = '#ffffff';
+            contexto.fillRect(0, 0, lienzo.width, lienzo.height);
+            contexto.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
             const r = await fetch('/api/admin/categorias/' + id + '/foto', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ foto: lienzo.toDataURL('image/jpeg', 0.8) })
