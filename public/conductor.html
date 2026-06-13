@@ -306,7 +306,7 @@
       let html = '';
       const extras = Array.isArray(v.extras) ? v.extras : (v.extras ? JSON.parse(v.extras) : []);
       if (extras.length) {
-        html += '<br><strong>Extras del pasajero:</strong> ' + extras.map(e => e.nombre).join(', ');
+        html += '<br><strong>Extras del pasajero:</strong> ' + extras.map(e => e.nombre).join('. ') + '.';
       }
       if (v.instrucciones_conductor) {
         html += '<br><strong>Instrucciones:</strong> ' + v.instrucciones_conductor;
