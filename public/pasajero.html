@@ -43,11 +43,10 @@
     #resumen-viaje { margin-top: 12px; font-size: 1rem; line-height: 1.7; }
     #resumen-viaje strong { color: var(--atlantico); }
     #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
-    /* Botones principales (fondo ámbar): más grandes para que sean fáciles de pulsar en móviles pequeños */
+    /* Botones principales (fondo ámbar): más altos para que sean fáciles de pulsar en móviles pequeños */
     .boton-grande { width: 100%; padding: 16px 22px; font-size: 1.05rem; }
-    /* Botones "Empezar de nuevo": más pequeños y un poco más separados del botón principal,
-       para evitar pulsaciones accidentales en pantallas pequeñas */
-    .boton-chico { width: 70%; display: block; margin: 20px auto 0; font-size: 0.92rem; }
+    /* "Empezar de nuevo": mismo ancho que los botones amarillos, tamaño normal */
+    .boton-ancho { width: 100%; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
@@ -137,22 +136,22 @@
         <div id="mapa"></div>
         <div id="paso-origen" class="oculto">
           <button class="boton-grande" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
-          <button class="secundario boton-chico" onclick="reiniciarOrigen()">🔄 Empezar de nuevo (la recogida)</button>
+          <button class="secundario boton-ancho" onclick="reiniciarOrigen()">🔄 Empezar de nuevo (la recogida)</button>
         </div>
         <div id="paso-destino" class="oculto">
           <button class="boton-grande" onclick="confirmarDestino()">✅ Confirmar destino</button>
-          <button class="secundario boton-chico" onclick="reiniciarDestino()">🔄 Empezar de nuevo (el destino)</button>
+          <button class="secundario boton-ancho" onclick="reiniciarDestino()">🔄 Empezar de nuevo (el destino)</button>
         </div>
 
         <button id="boton-confirmar" class="oculto boton-grande" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
 
-        <!-- Información del viaje: aparte de la solicitud, debajo de la confirmación -->
+        <!-- Información del viaje: solo aparece tras confirmar, justo antes de pedir el taxi -->
         <div id="info-viaje" class="oculto">
           <h2>Información del viaje</h2>
           <div id="resumen-viaje"></div>
         </div>
 
-        <button id="boton-reiniciar-grande" class="secundario oculto boton-chico" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo (cambiar el viaje)</button>
+        <button id="boton-reiniciar-grande" class="secundario oculto boton-ancho" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo (cambiar el viaje)</button>
         <button id="boton-pedir" class="oculto boton-grande" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
       </div>
 
@@ -499,7 +498,6 @@
     async function calcularRuta() {
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
-      document.getElementById('info-viaje').classList.remove('oculto');
       document.getElementById('resumen-viaje').innerHTML = '🛣️ Calculando recorrido…';
 
       try {
@@ -536,8 +534,7 @@
       html += '<br>💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
       html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
-      document.getElementById('info-viaje').classList.remove('oculto');
-      // Sin desplazamientos extra: la vista se queda en el mapa, donde el usuario está ajustando
+      // El cuadro "Información del viaje" se muestra al confirmar recogida y destino, no antes
     }
 
     function actualizarEstado() {
@@ -590,6 +587,7 @@
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
       instruccion('✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".');
+      document.getElementById('info-viaje').classList.remove('oculto');
       // Vista de un tramo amplio alrededor de la recogida (la isla entera no aporta;
       // si el cliente quiere ver más, amplía él mismo con los dedos)
       const o = marcadorOrigen.getLatLng();
