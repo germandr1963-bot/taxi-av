@@ -86,6 +86,21 @@
       <!-- Editor de la categoría seleccionada -->
       <div class="tarjeta oculto" id="editor-categoria" style="border:2px solid var(--costa);max-width:560px"></div>
 
+      <h2>Extras del viaje</h2>
+      <p class="sub" style="margin-bottom:10px">"Incluido" = gratis (solo informativo). Si lo desmarcas, se cobra el precio indicado. "Todas las categorías" = se ofrece en cualquier vehículo; si lo desmarcas, eliges en cuáles.</p>
+      <div class="tabla-envoltura">
+        <table>
+          <thead>
+            <tr><th>Orden</th><th>Extra</th><th>Incluido / Precio</th><th>Categorías</th><th>Activo</th><th>Acción</th></tr>
+          </thead>
+          <tbody id="tabla-extras"></tbody>
+        </table>
+      </div>
+      <button style="margin-top:10px" onclick="nuevoExtra()">➕ Añadir extra nuevo</button>
+
+      <!-- Editor del extra seleccionado -->
+      <div class="tarjeta oculto" id="editor-extra" style="border:2px solid var(--costa);max-width:560px"></div>
+
       <h2>Conductores</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(true)">💬 Permitir contacto a TODOS</button>
@@ -164,7 +179,8 @@
     async function cargarPanel() {
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarCategorias(), cargarServicios()]);
+      await cargarCategorias();
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
     }
 
     const ETIQUETAS_FOTO = {
@@ -534,6 +550,115 @@
         body: JSON.stringify({ disponible })
       });
       await cargarCategorias();
+    }
+
+    // ---------- Extras del viaje ----------
+    let extrasCache = [];
+
+    async function cargarExtras() {
+      const r = await fetch('/api/admin/extras');
+      const { extras } = await r.json();
+      extrasCache = extras;
+      document.getElementById('tabla-extras').innerHTML = extras.map(ex => `
+        <tr>
+          <td>${ex.orden}</td>
+          <td><strong>${escapar(ex.nombre)}</strong></td>
+          <td>${ex.incluido ? 'Incluido (gratis)' : Number(ex.precio).toFixed(2) + ' €'}</td>
+          <td>${ex.todas_categorias ? 'Todas' : (ex.categorias.map(id => {
+                const c = categoriasCache.find(c => c.id === id);
+                return c ? escapar(c.nombre) : '?';
+              }).join(', ') || '—')}</td>
+          <td><span class="etiqueta ${ex.activo ? 'aprobado' : 'pendiente'}">${ex.activo ? 'ACTIVO' : 'inactivo'}</span></td>
+          <td>
+            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="editarExtra(${ex.id})">✏️ Editar</button>
+            <button class="${ex.activo ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
+              onclick="alternarExtraActivo(${ex.id}, ${!ex.activo})">${ex.activo ? 'Desactivar' : 'Activar'}</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function formularioExtra(ex) {
+      const categoriasHtml = categoriasCache.map(c => `
+        <label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-weight:normal">
+          <input type="checkbox" class="extra-categoria" value="${c.id}" ${ex.categorias && ex.categorias.includes(c.id) ? 'checked' : ''}> ${escapar(c.nombre)}
+        </label>`).join('');
+      return `
+        <label>Nombre</label>
+        <input id="extra-nombre" type="text" value="${escapar(ex.nombre || '')}">
+        <label>Orden (los extras se listan de menor a mayor)</label>
+        <input id="extra-orden" type="number" value="${ex.orden || 0}">
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+          <input id="extra-incluido" type="checkbox" ${ex.incluido !== false ? 'checked' : ''} onchange="document.getElementById('extra-precio-caja').classList.toggle('oculto', this.checked)">
+          Incluido (gratis, solo informativo)
+        </label>
+        <div id="extra-precio-caja" class="${ex.incluido !== false ? 'oculto' : ''}">
+          <label>Precio (€)</label>
+          <input id="extra-precio" type="number" step="0.01" min="0" value="${Number(ex.precio || 0).toFixed(2)}">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+          <input id="extra-todas" type="checkbox" ${ex.todas_categorias !== false ? 'checked' : ''} onchange="document.getElementById('extra-categorias-caja').classList.toggle('oculto', this.checked)">
+          Disponible en todas las categorías
+        </label>
+        <div id="extra-categorias-caja" class="${ex.todas_categorias !== false ? 'oculto' : ''}" style="margin-top:8px">
+          ${categoriasHtml}
+        </div>`;
+    }
+
+    function editarExtra(id) {
+      const ex = extrasCache.find(x => x.id === id);
+      if (!ex) return;
+      const editor = document.getElementById('editor-extra');
+      editor.classList.remove('oculto');
+      editor.innerHTML = `
+        <h2 style="margin-top:0">✏️ Editar extra</h2>
+        ${formularioExtra(ex)}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button style="margin-top:10px" onclick="guardarExtra(${ex.id})">💾 Guardar cambios</button>
+          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-extra').classList.add('oculto')">Cancelar</button>
+        </div>`;
+      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function nuevoExtra() {
+      const editor = document.getElementById('editor-extra');
+      editor.classList.remove('oculto');
+      editor.innerHTML = `
+        <h2 style="margin-top:0">➕ Nuevo extra</h2>
+        ${formularioExtra({ incluido: true, todas_categorias: true, orden: (extrasCache.length + 1) * 10 })}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button style="margin-top:10px" onclick="guardarExtra(null)">💾 Crear extra</button>
+          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-extra').classList.add('oculto')">Cancelar</button>
+        </div>`;
+      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function guardarExtra(id) {
+      const categorias = Array.from(document.querySelectorAll('.extra-categoria:checked')).map(c => c.value);
+      const datos = {
+        nombre: document.getElementById('extra-nombre').value,
+        incluido: document.getElementById('extra-incluido').checked,
+        precio: document.getElementById('extra-precio').value,
+        todas_categorias: document.getElementById('extra-todas').checked,
+        orden: document.getElementById('extra-orden').value,
+        categorias
+      };
+      const url = id ? '/api/admin/extras/' + id + '/editar' : '/api/admin/extras';
+      const r = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        document.getElementById('editor-extra').classList.add('oculto');
+        cargarExtras();
+      } else alert(respuesta.error);
+    }
+
+    async function alternarExtraActivo(id, activo) {
+      await fetch('/api/admin/extras/' + id + '/activo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activo })
+      });
+      await cargarExtras();
     }
 
     async function cargarValoraciones() {

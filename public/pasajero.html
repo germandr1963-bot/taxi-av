@@ -62,6 +62,22 @@
     .nombre-categoria { margin-top: 6px; font-weight: 700; font-size: 0.88rem; color: var(--atlantico); }
     .capacidad-categoria { margin-top: 2px; font-size: 0.78rem; color: var(--tinta); }
     .precio-categoria { margin-top: 4px; font-size: 0.92rem; font-weight: 700; color: var(--costa); }
+    /* Bloques de opciones/extras: separados por una línea fina */
+    .bloque-extra { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--borde); }
+    .extra-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 0;
+      font-size: 0.95rem; cursor: pointer;
+    }
+    .extra-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; }
+    .precio-extra { margin-left: auto; font-size: 0.85rem; color: var(--costa); font-weight: 600; white-space: nowrap; }
+    .bolsa-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 10px; background: #EAF4F6; border-radius: 8px; margin-bottom: 6px; font-size: 0.9rem;
+    }
+    .bolsa-item button {
+      margin: 0; padding: 4px 10px; font-size: 0.85rem; background: transparent;
+      border: 1px solid var(--peligro); color: var(--peligro); border-radius: 6px;
+    }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
     .fila-estrellas span { color: #C9D4DC; }
@@ -169,6 +185,43 @@
         <div id="info-viaje" class="oculto">
           <h2>Información del viaje</h2>
           <div id="resumen-viaje"></div>
+        </div>
+
+        <!-- Opciones y extras del viaje: aparecen junto con la información, tras elegir el vehículo -->
+        <div id="extras-viaje" class="oculto">
+
+          <div class="bloque-extra">
+            <h2 style="margin-top:0">➕ Agregar paradas</h2>
+            <p class="sub" style="margin:0">Próximamente podrás añadir paradas intermedias en tu ruta.</p>
+          </div>
+
+          <div class="bloque-extra">
+            <label for="instrucciones-conductor">📝 Instrucciones para el conductor (opcional)</label>
+            <input id="instrucciones-conductor" type="text" maxlength="300" placeholder="Ej.: Llamar al llegar, el portal es el azul...">
+          </div>
+
+          <div class="bloque-extra">
+            <label class="extra-item">
+              <input type="checkbox" id="pedido-otra-persona" onchange="alternarPedidoOtraPersona()">
+              👤 Hacer un pedido para otra persona
+            </label>
+            <div id="datos-otra-persona" class="oculto" style="margin-top:8px">
+              <label for="otra-persona-nombre">Nombre de la persona</label>
+              <input id="otra-persona-nombre" type="text" maxlength="120" placeholder="Nombre">
+              <label for="otra-persona-telefono">Teléfono de contacto</label>
+              <input id="otra-persona-telefono" type="tel" maxlength="40" placeholder="Teléfono">
+            </div>
+          </div>
+
+          <div class="bloque-extra">
+            <h2 style="margin-top:0">Extras del viaje</h2>
+            <div id="lista-extras"></div>
+          </div>
+
+          <div id="bolsa-extras-cont" class="bloque-extra oculto">
+            <h2 style="margin-top:0">Tu selección</h2>
+            <div id="bolsa-extras"></div>
+          </div>
         </div>
 
         <button id="boton-reiniciar-grande" class="secundario oculto boton-ancho" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo el viaje</button>
@@ -309,6 +362,19 @@
     let categoriasDisponibles = [];
     let diurnoActual = true;
     let categoriaSeleccionada = null;
+
+    // Extras del viaje (Entrega 2)
+    let extrasDisponibles = [];
+    let extrasSeleccionados = new Set();
+
+    function totalExtrasSeleccionados() {
+      let total = 0;
+      extrasSeleccionados.forEach(id => {
+        const ex = extrasDisponibles.find(e => e.id === id);
+        if (ex) total += Number(ex.precio);
+      });
+      return total;
+    }
 
     function precioEstimado(km, categoria) {
       const bajada = diurnoActual ? Number(categoria.bajada_diurna) : Number(categoria.bajada_nocturna);
@@ -502,6 +568,17 @@
       document.getElementById('selector-categoria').classList.add('oculto');
       document.getElementById('tarjetas-categorias').innerHTML = '';
       categoriaSeleccionada = null;
+      document.getElementById('extras-viaje').classList.add('oculto');
+      document.getElementById('lista-extras').innerHTML = '';
+      document.getElementById('bolsa-extras').innerHTML = '';
+      document.getElementById('bolsa-extras-cont').classList.add('oculto');
+      extrasDisponibles = [];
+      extrasSeleccionados = new Set();
+      document.getElementById('instrucciones-conductor').value = '';
+      document.getElementById('pedido-otra-persona').checked = false;
+      document.getElementById('datos-otra-persona').classList.add('oculto');
+      document.getElementById('otra-persona-nombre').value = '';
+      document.getElementById('otra-persona-telefono').value = '';
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-reiniciar-grande').classList.add('oculto');
@@ -558,10 +635,12 @@
       if (!rutaActual || !categoriaSeleccionada) return;
       const km = rutaActual.km;
       const min = rutaActual.min;
-      const precio = precioEstimado(km, categoriaSeleccionada);
+      const totalExtras = totalExtrasSeleccionados();
+      const precio = precioEstimado(km, categoriaSeleccionada) + totalExtras;
       let html = '🛣️ Recorrido: <strong>' + km.toFixed(1) + ' km</strong>';
       if (min !== null) html += '<br>⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
-      html += '<br>💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
+      if (totalExtras > 0) html += '<br>➕ Extras: <strong>+' + totalExtras.toFixed(2) + ' €</strong>';
+      html += '<br>💶 Precio total: <strong>~' + precio.toFixed(2) + ' €</strong>';
       html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
       // El cuadro "Información del viaje" se muestra al elegir el vehículo
@@ -675,9 +754,85 @@
       pintarTarjetasCategorias();
       pintarResumen();
       document.getElementById('info-viaje').classList.remove('oculto');
+      document.getElementById('extras-viaje').classList.remove('oculto');
       document.getElementById('boton-reiniciar-grande').classList.remove('oculto');
       document.getElementById('boton-pedir').classList.remove('oculto');
+      cargarExtrasDisponibles();
       irA('info-viaje');
+    }
+
+    // ============================================================
+    // EXTRAS DEL VIAJE — lista de interruptores + bolsa con lo elegido
+    // ============================================================
+    async function cargarExtrasDisponibles() {
+      // Al cambiar de vehículo, algunos extras pueden dejar de aplicar (p.ej. bicicleta)
+      extrasSeleccionados = new Set();
+      const cont = document.getElementById('lista-extras');
+      cont.innerHTML = '<p class="sub">Cargando extras…</p>';
+      try {
+        const r = await fetch('/api/extras-disponibles?categoria_id=' + categoriaSeleccionada.id);
+        const datos = await r.json();
+        extrasDisponibles = datos.extras || [];
+      } catch (e) {
+        extrasDisponibles = [];
+      }
+      pintarListaExtras();
+      pintarBolsaExtras();
+    }
+
+    function pintarListaExtras() {
+      const cont = document.getElementById('lista-extras');
+      if (!extrasDisponibles.length) {
+        cont.innerHTML = '<p class="sub">No hay extras disponibles para este vehículo.</p>';
+        return;
+      }
+      cont.innerHTML = extrasDisponibles.map(ex => `
+        <label class="extra-item">
+          <input type="checkbox" onchange="alternarExtra(${ex.id})" ${extrasSeleccionados.has(ex.id) ? 'checked' : ''}>
+          ${escapar(ex.nombre)}
+          ${Number(ex.precio) > 0 ? '<span class="precio-extra">+' + Number(ex.precio).toFixed(2) + ' €</span>' : ''}
+        </label>
+      `).join('');
+    }
+
+    function alternarExtra(id) {
+      if (extrasSeleccionados.has(id)) extrasSeleccionados.delete(id);
+      else extrasSeleccionados.add(id);
+      pintarBolsaExtras();
+      pintarResumen();
+    }
+
+    function pintarBolsaExtras() {
+      const cont = document.getElementById('bolsa-extras');
+      const caja = document.getElementById('bolsa-extras-cont');
+      if (!extrasSeleccionados.size) {
+        caja.classList.add('oculto');
+        cont.innerHTML = '';
+        return;
+      }
+      caja.classList.remove('oculto');
+      cont.innerHTML = Array.from(extrasSeleccionados).map(id => {
+        const ex = extrasDisponibles.find(e => e.id === id);
+        if (!ex) return '';
+        return `
+          <div class="bolsa-item">
+            <span>${escapar(ex.nombre)}${Number(ex.precio) > 0 ? ' (+' + Number(ex.precio).toFixed(2) + ' €)' : ''}</span>
+            <button onclick="quitarExtra(${id})">✕ Quitar</button>
+          </div>`;
+      }).join('');
+    }
+
+    function quitarExtra(id) {
+      extrasSeleccionados.delete(id);
+      pintarListaExtras();
+      pintarBolsaExtras();
+      pintarResumen();
+    }
+
+    // Pedido para otra persona
+    function alternarPedidoOtraPersona() {
+      const marcado = document.getElementById('pedido-otra-persona').checked;
+      document.getElementById('datos-otra-persona').classList.toggle('oculto', !marcado);
     }
 
     // ============================================================
@@ -721,6 +876,7 @@
       }
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
+      const pedidoOtra = document.getElementById('pedido-otra-persona').checked;
       const datos = {
         origen_lat: o.lat,
         origen_lng: o.lng,
@@ -728,7 +884,11 @@
         destino_lat: d.lat,
         destino_lng: d.lng,
         destino_direccion: direccionDestino,
-        categoria_id: categoriaSeleccionada.id
+        categoria_id: categoriaSeleccionada.id,
+        extras: Array.from(extrasSeleccionados),
+        instrucciones_conductor: document.getElementById('instrucciones-conductor').value,
+        pedido_para_nombre: pedidoOtra ? document.getElementById('otra-persona-nombre').value : '',
+        pedido_para_telefono: pedidoOtra ? document.getElementById('otra-persona-telefono').value : ''
       };
       const r = await fetch('/api/pasajero/viaje', {
         method: 'POST',

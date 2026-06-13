@@ -289,7 +289,8 @@
           '<strong>Pasajero:</strong> ' + viaje.pasajero_nombre + '<br>' +
           '<strong>Recogida:</strong> ' + (viaje.origen_direccion || 'punto marcado en el mapa') + '<br>' +
           '<strong>Destino:</strong> ' + (viaje.destino_direccion || 'punto marcado en el mapa') + '<br>' +
-          '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)';
+          '<strong>Distancia:</strong> ' + parseFloat(viaje.distancia_km).toFixed(1) + ' km (línea recta, aprox.)' +
+          extrasHtml(viaje);
         document.getElementById('boton-iniciar').classList.toggle('oculto', viaje.estado !== 'asignado');
         document.getElementById('boton-finalizar').classList.toggle('oculto', viaje.estado !== 'en_curso');
       } else {
@@ -297,6 +298,24 @@
         document.getElementById('tarjeta-trabajo').classList.remove('oculto');
         if (disponible) cargarSolicitudes();
       }
+    }
+
+    // Avisos para el conductor: extras marcados por el pasajero, instrucciones y
+    // datos si el pedido es para otra persona (no se cobran, son informativos)
+    function extrasHtml(v) {
+      let html = '';
+      const extras = Array.isArray(v.extras) ? v.extras : (v.extras ? JSON.parse(v.extras) : []);
+      if (extras.length) {
+        html += '<br><strong>Extras del pasajero:</strong> ' + extras.map(e => e.nombre).join(', ');
+      }
+      if (v.instrucciones_conductor) {
+        html += '<br><strong>Instrucciones:</strong> ' + v.instrucciones_conductor;
+      }
+      if (v.pedido_para_nombre) {
+        html += '<br><strong>Pedido para:</strong> ' + v.pedido_para_nombre +
+          (v.pedido_para_telefono ? ' · ' + v.pedido_para_telefono : '');
+      }
+      return html;
     }
 
     async function cargarSolicitudes() {
@@ -312,8 +331,9 @@
         '<div style="border:1px solid var(--borde);border-radius:8px;padding:12px;margin-bottom:10px">' +
         '<strong>' + s.pasajero_nombre + '</strong> · ' + parseFloat(s.distancia_km).toFixed(1) + ' km<br>' +
         '📍 ' + (s.origen_direccion || 'punto en el mapa') + '<br>' +
-        '🏁 ' + (s.destino_direccion || 'punto en el mapa') + '<br>' +
-        '<button style="margin-top:8px;padding:8px 16px" onclick="aceptarViaje(' + s.id + ')">✅ Aceptar este viaje</button>' +
+        '🏁 ' + (s.destino_direccion || 'punto en el mapa') +
+        extrasHtml(s) +
+        '<br><button style="margin-top:8px;padding:8px 16px" onclick="aceptarViaje(' + s.id + ')">✅ Aceptar este viaje</button>' +
         '</div>'
       ).join('');
     }
