@@ -83,6 +83,9 @@
         </table>
       </div>
 
+      <!-- Editor de la categoría seleccionada -->
+      <div class="tarjeta oculto" id="editor-categoria" style="border:2px solid var(--costa);max-width:560px"></div>
+
       <h2>Conductores</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(true)">💬 Permitir contacto a TODOS</button>
@@ -176,23 +179,36 @@
       const { conductor: c } = await r.json();
       const ficha = document.getElementById('ficha-conductor');
       ficha.classList.remove('oculto');
+      const campo = (etiqueta, id_campo, valor) =>
+        `<label style="margin-top:8px">${etiqueta}</label><input id="f-${id_campo}" type="text" value="${escapar(valor == null ? '' : String(valor))}">`;
       ficha.innerHTML = `
-        <h2 style="margin-top:0">📋 Expediente: ${escapar(c.nombre)}</h2>
+        <h2 style="margin-top:0">📋 Expediente editable: ${escapar(c.nombre)} <span style="font-size:0.8rem;color:#5a6c79">(modifica lo que necesites y pulsa Guardar)</span></h2>
         ${c.foto ? '<img src="' + c.foto + '" alt="Foto de carné" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:2px solid var(--borde);float:right;margin-left:12px">' : ''}
-        <p>
-        <strong>Datos personales</strong><br>
-        Documento: ${escapar(c.documento || '—')} · Tel.: ${escapar(c.telefono)} · ${escapar(c.email)}<br>
-        ${escapar(c.direccion || '—')}, ${escapar(c.cp || '')} ${escapar(c.municipio || '')}<br><br>
-        <strong>Licencia</strong><br>
-        Nº ${escapar(c.numero_licencia || '—')} · Municipio: ${escapar(c.municipio_licencia || '—')}<br>
-        Central de flota: ${escapar(c.central_flota || '—')}<br><br>
-        <strong>Vehículo</strong><br>
-        ${escapar(c.vehiculo_marca || '—')} ${escapar(c.vehiculo_modelo || '')} · Categoría: ${escapar(c.categoria || '—')}<br>
-        Matrícula ${escapar(c.matricula || '—')} · Nº taxi ${escapar(c.numero_taxi || '—')} · ${c.plazas} plazas · ${escapar(c.isla)}<br><br>
-        <strong>Foto de carné:</strong> ${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}
-        ${c.foto_motivo ? '<br><em>Motivo del rechazo: ' + escapar(c.foto_motivo) + '</em>' : ''}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
+          ${campo('Nombre completo', 'nombre', c.nombre)}
+          ${campo('Documento (DNI/NIE)', 'documento', c.documento)}
+          ${campo('Teléfono', 'telefono', c.telefono)}
+          ${campo('Email', 'email', c.email)}
+          ${campo('Dirección', 'direccion', c.direccion)}
+          ${campo('Código postal', 'cp', c.cp)}
+          ${campo('Municipio', 'municipio', c.municipio)}
+          ${campo('Municipio de la licencia', 'municipio_licencia', c.municipio_licencia)}
+          ${campo('Nº de licencia', 'numero_licencia', c.numero_licencia)}
+          ${campo('Central de flota', 'central_flota', c.central_flota)}
+          ${campo('Marca del vehículo', 'vehiculo_marca', c.vehiculo_marca)}
+          ${campo('Modelo', 'vehiculo_modelo', c.vehiculo_modelo)}
+          ${campo('Matrícula', 'matricula', c.matricula)}
+          ${campo('Nº de taxi', 'numero_taxi', c.numero_taxi)}
+          ${campo('Plazas', 'plazas', c.plazas)}
+          ${campo('Isla', 'isla', c.isla)}
+        </div>
+        <p style="margin-top:10px">
+          <strong>Categoría:</strong> ${escapar(c.categoria || '—')} ·
+          <strong>Foto de carné:</strong> ${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}
+          ${c.foto_motivo ? '<br><em>Motivo del rechazo: ' + escapar(c.foto_motivo) + '</em>' : ''}
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button style="margin-top:0;padding:8px 14px" onclick="guardarFicha(${c.id})">💾 Guardar cambios</button>
           ${c.foto_estado === 'pendiente' || c.foto_estado === 'rechazada' ? `<button style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'aprobar')">✅ Aprobar foto</button>` : ''}
           ${c.foto_estado === 'pendiente' || c.foto_estado === 'aprobada' ? `<button class="peligro" style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'rechazar')">❌ Rechazar foto</button>` : ''}
           <button class="secundario" style="margin-top:0;padding:8px 14px" onclick="document.getElementById('ficha-conductor').classList.add('oculto')">Cerrar ficha</button>
@@ -200,7 +216,25 @@
       ficha.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    async function decidirFoto(id, accion) {
+    async function guardarFicha(id) {
+      const datos = {};
+      ['nombre','documento','telefono','email','direccion','cp','municipio','municipio_licencia',
+       'numero_licencia','central_flota','vehiculo_marca','vehiculo_modelo','matricula','numero_taxi',
+       'plazas','isla'].forEach(campo => {
+        datos[campo] = document.getElementById('f-' + campo).value;
+      });
+      const r = await fetch('/api/admin/conductores/' + id + '/editar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        alert('Ficha guardada. ✓');
+        await Promise.all([cargarConductores(), verFicha(id)]);
+      } else alert(respuesta.error);
+    }
+
+        async function decidirFoto(id, accion) {
       let motivo = null;
       if (accion === 'rechazar') {
         motivo = prompt('Motivo del rechazo (el conductor lo verá):', 'La foto no es clara o no es de tipo carné.');
@@ -222,7 +256,8 @@
         <tr>
           <td><input type="number" min="1" value="${s.posicion}" style="width:70px"
                 onchange="cambiarPosicionServicio(${s.id}, this.value)"></td>
-          <td><strong>${escapar(s.nombre)}</strong></td>
+          <td><input type="text" value="${escapar(s.nombre)}" style="min-width:200px;font-weight:700"
+                onchange="renombrarServicio(${s.id}, this.value)"></td>
           <td>
             <select onchange="cambiarEstadoServicio(${s.id}, this.value)">
               <option value="inactivo" ${s.estado === 'inactivo' ? 'selected' : ''}>Inactivo (oculto)</option>
@@ -257,6 +292,15 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado })
       });
+    }
+
+    async function renombrarServicio(id, nombre) {
+      const r = await fetch('/api/admin/servicios/' + id, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre })
+      });
+      const respuesta = await r.json();
+      if (!respuesta.ok) { alert(respuesta.error); cargarServicios(); }
     }
 
     async function cambiarPosicionServicio(id, posicion) {
@@ -384,6 +428,7 @@
     async function cargarCategorias() {
       const r = await fetch('/api/admin/categorias');
       const { categorias } = await r.json();
+      categoriasCache = categorias;
       document.getElementById('tabla-categorias').innerHTML = categorias.map(cat => `
         <tr>
           <td><strong>${escapar(cat.nombre)}</strong></td>
@@ -397,11 +442,57 @@
           </td>
           <td><span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span></td>
           <td>
+            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
+              onclick="editarCategoria(${cat.id})">✏️ Editar</button>
             <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
               onclick="alternarCategoria(${cat.id}, ${!cat.activa})">${cat.activa ? 'Desactivar' : 'Activar'}</button>
           </td>
         </tr>
       `).join('');
+    }
+
+    let categoriasCache = [];
+
+    function editarCategoria(id) {
+      const cat = categoriasCache.find(x => x.id === id);
+      if (!cat) return;
+      const editor = document.getElementById('editor-categoria');
+      editor.classList.remove('oculto');
+      editor.innerHTML = `
+        <h2 style="margin-top:0">✏️ Editar categoría</h2>
+        <label>Nombre</label>
+        <input id="cat-nombre" type="text" value="${escapar(cat.nombre)}">
+        <label>Pasajeros (capacidad)</label>
+        <input id="cat-pasajeros" type="number" min="1" max="12" value="${cat.capacidad_pasajeros}">
+        <label>Maletas (texto libre, ej.: "3 grandes")</label>
+        <input id="cat-maletas" type="text" value="${escapar(cat.capacidad_maletas)}">
+        <label>Sillas de bebé (máximo)</label>
+        <input id="cat-sillas" type="number" min="0" max="6" value="${cat.limite_sillas}">
+        <label>Descripción</label>
+        <input id="cat-descripcion" type="text" value="${escapar(cat.descripcion || '')}">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button style="margin-top:10px" onclick="guardarCategoria(${cat.id})">💾 Guardar cambios</button>
+          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
+        </div>`;
+      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function guardarCategoria(id) {
+      const r = await fetch('/api/admin/categorias/' + id + '/editar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: document.getElementById('cat-nombre').value,
+          capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
+          capacidad_maletas: document.getElementById('cat-maletas').value,
+          limite_sillas: document.getElementById('cat-sillas').value,
+          descripcion: document.getElementById('cat-descripcion').value
+        })
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        document.getElementById('editor-categoria').classList.add('oculto');
+        cargarCategorias();
+      } else alert(respuesta.error);
     }
 
     async function alternarCategoria(id, activa) {

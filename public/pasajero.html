@@ -130,9 +130,13 @@
 
         <!-- MAPA con la ruta -->
         <div id="mapa"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="secundario boton-ubicacion" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo</button>
-          <button class="boton-ubicacion oculto" id="boton-confirmar-origen" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
+        <div id="paso-origen" class="oculto">
+          <button class="boton-ubicacion" style="width:100%" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
+          <button class="secundario boton-ubicacion" style="width:100%" onclick="reiniciarOrigen()">🔄 Empezar de nuevo (la recogida)</button>
+        </div>
+        <div id="paso-destino" class="oculto">
+          <button class="boton-ubicacion" style="width:100%" onclick="confirmarDestino()">✅ Confirmar destino</button>
+          <button class="secundario boton-ubicacion" style="width:100%" onclick="reiniciarDestino()">🔄 Empezar de nuevo (el destino)</button>
         </div>
 
         <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
@@ -264,6 +268,8 @@
     let mapa = null;
     let marcadorOrigen = null;
     let marcadorDestino = null;
+    let origenConfirmado = false;
+    let destinoConfirmado = false;
     let lineaRuta = null;            // el dibujo del recorrido en el mapa
     let rutaActual = null;           // { km, min } de la ruta calculada
     let direccionOrigen = '';
@@ -300,8 +306,42 @@
 
     // El usuario da por buena la recogida: pasamos directos al destino
     function confirmarOrigen() {
-      document.getElementById('boton-confirmar-origen').classList.add('oculto');
-      instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>.');
+      origenConfirmado = true;
+      actualizarEstado();
+      const caja = document.getElementById('direccion-destino');
+      caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      caja.focus();
+    }
+
+    // Empezar de nuevo SOLO la recogida (el destino, si lo hubiera, no se toca)
+    function reiniciarOrigen() {
+      if (marcadorOrigen) { mapa.removeLayer(marcadorOrigen); marcadorOrigen = null; }
+      origenConfirmado = false;
+      direccionOrigen = null;
+      document.getElementById('direccion-origen').value = '';
+      if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
+      rutaActual = null;
+      actualizarEstado();
+      const caja = document.getElementById('direccion-origen');
+      caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      caja.focus();
+    }
+
+    // El usuario da por bueno el destino: pasamos a la decisión final con precios
+    function confirmarDestino() {
+      destinoConfirmado = true;
+      actualizarEstado();
+    }
+
+    // Empezar de nuevo SOLO el destino (la recogida ya decidida no se toca)
+    function reiniciarDestino() {
+      if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
+      destinoConfirmado = false;
+      direccionDestino = null;
+      document.getElementById('direccion-destino').value = '';
+      if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
+      rutaActual = null;
+      actualizarEstado();
       const caja = document.getElementById('direccion-destino');
       caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
       caja.focus();
@@ -322,8 +362,8 @@
 
       mapa.on('click', function (e) {
         if (confirmado) return;
-        if (!marcadorOrigen) ponerMarcador('origen', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
-        else if (!marcadorDestino) ponerMarcador('destino', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
+        if (!origenConfirmado) ponerMarcador('origen', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
+        else ponerMarcador('destino', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
       });
 
       setTimeout(() => mapa.invalidateSize(), 200);
@@ -346,6 +386,7 @@
 
       marcador.bindPopup(esOrigen ? '📍 Recogida (arrástrame para ajustar)' : '🏁 Destino (arrástrame para ajustar)').openPopup();
       if (esOrigen) direccionOrigen = direccion; else direccionDestino = direccion;
+      if (esOrigen) origenConfirmado = false; else destinoConfirmado = false;
       // Acercarse al punto recién marcado para verlo y ajustarlo con comodidad
       mapa.flyTo([lat, lng], Math.max(mapa.getZoom(), 16), { duration: 0.8 });
       actualizarEstado();
@@ -427,8 +468,9 @@
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-reiniciar-grande').classList.add('oculto');
-      document.getElementById('boton-confirmar-origen').classList.add('oculto');
-      instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
+      origenConfirmado = false;
+      destinoConfirmado = false;
+      actualizarEstado();
       const caja = document.getElementById('direccion-origen');
       caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
       caja.focus();
@@ -494,16 +536,39 @@
     }
 
     function actualizarEstado() {
-      if (marcadorOrigen && !marcadorDestino) {
-        instruccion('🧐 Comprueba el punto de recogida en el mapa: arrástralo si hace falta y pulsa <strong>Confirmar recogida</strong>.');
-        document.getElementById('resumen-viaje').innerHTML = '';
+      const pasoOrigen = document.getElementById('paso-origen');
+      const pasoDestino = document.getElementById('paso-destino');
+      pasoOrigen.classList.add('oculto');
+      pasoDestino.classList.add('oculto');
+      document.getElementById('boton-confirmar').classList.add('oculto');
+
+      if (!marcadorOrigen) {
+        // Paso 1: falta la recogida
+        instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
         document.getElementById('info-viaje').classList.add('oculto');
-        document.getElementById('boton-confirmar').classList.add('oculto');
-        document.getElementById('boton-confirmar-origen').classList.remove('oculto');
+
+      } else if (!origenConfirmado) {
+        // Paso 2: comprobar y confirmar SOLO la recogida
+        instruccion('🧐 Comprueba el punto de recogida: arrástralo si hace falta y pulsa <strong>Confirmar recogida</strong>.');
+        document.getElementById('info-viaje').classList.add('oculto');
+        pasoOrigen.classList.remove('oculto');
         irA('mapa');
-      } else if (marcadorOrigen && marcadorDestino) {
-        instruccion('✏️ Revisa el recorrido: puedes <strong>arrastrar los marcadores</strong> para afinar. Cuando esté bien, pulsa Confirmar.');
-        document.getElementById('boton-confirmar-origen').classList.add('oculto');
+
+      } else if (!marcadorDestino) {
+        // Paso 3: falta el destino
+        instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o toca el mapa.');
+        document.getElementById('info-viaje').classList.add('oculto');
+
+      } else if (!destinoConfirmado) {
+        // Paso 4: comprobar y confirmar SOLO el destino
+        instruccion('🧐 Comprueba el punto de destino: arrástralo si hace falta y pulsa <strong>Confirmar destino</strong>.');
+        document.getElementById('info-viaje').classList.add('oculto');
+        pasoDestino.classList.remove('oculto');
+        irA('mapa');
+
+      } else {
+        // Paso 5: decisión final, con la información del viaje y los precios
+        instruccion('✏️ Revisa el recorrido y la información del viaje. Si todo está bien, pulsa <strong>Confirmar recogida y destino</strong>.');
         document.getElementById('boton-confirmar').classList.remove('oculto');
         irA('mapa');
         calcularRuta();
@@ -697,7 +762,7 @@
       // Una vez el viaje está en curso, ya no se puede cancelar desde la app
       document.getElementById('boton-cancelar').classList.toggle('oculto', viaje.estado === 'en_curso');
       // El contacto solo existe cuando HAY chofer asignado y la empresa lo permite para ese chofer
-      const contactoVisible = !!viaje.conductor_nombre && viaje.contacto_permitido !== false;
+      const contactoVisible = (viaje.estado === 'asignado') && !!viaje.conductor_nombre && viaje.contacto_permitido !== false;
       document.getElementById('boton-contactar').classList.toggle('oculto', !contactoVisible);
 
       // Sondeo: consultar el estado cada 6 segundos

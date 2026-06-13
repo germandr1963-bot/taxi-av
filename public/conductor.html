@@ -128,6 +128,11 @@
         <h2 style="margin-top:0">Recibir viajes</h2>
         <button id="boton-disponible" onclick="alternarDisponible()">▶️ Ponerme DISPONIBLE</button>
         <p style="font-size:0.82rem;color:#5a6c79;margin-top:8px">📡 Mientras estés disponible o en un viaje, tu posición GPS se comparte para que el pasajero vea llegar su taxi. Al desconectarte, deja de compartirse.</p>
+        <div id="aviso-cancelado" class="oculto" onclick="this.classList.add('oculto')"
+          style="background:#B3261E;color:#fff;padding:14px;border-radius:10px;font-weight:700;font-size:1.05rem;margin-bottom:10px;cursor:pointer">
+          ⚠️ VIAJE CANCELADO POR EL PASAJERO<br>
+          <span style="font-weight:400;font-size:0.9rem">No continúes hacia la recogida. (Toca para cerrar este aviso.)</span>
+        </div>
         <div id="zona-solicitudes" class="oculto">
           <h2>Solicitudes pendientes</h2>
           <div id="lista-solicitudes" style="font-size:0.95rem">Cargando…</div>
@@ -244,7 +249,26 @@
 
     // Cada 7 segundos: ¿tengo un viaje en marcha? Si no, ¿hay solicitudes nuevas?
     // Además, mientras esté disponible o en viaje, se envía la posición GPS.
+    let refrescando = false; // candado: nunca dos consultas cruzadas a la vez
+
     async function refrescarTrabajo() {
+      if (refrescando) return;
+      refrescando = true;
+      try {
+        await refrescarTrabajoReal();
+      } catch (e) { /* red caída este ciclo: se reintenta en el siguiente */ }
+      refrescando = false;
+    }
+
+    function avisarCancelacion() {
+      // Aviso bien visible pero NO bloqueante (una alerta del navegador congelaba el sondeo)
+      const aviso = document.getElementById('aviso-cancelado');
+      aviso.classList.remove('oculto');
+      if (navigator.vibrate) navigator.vibrate([300, 120, 300]);
+      setTimeout(function () { aviso.classList.add('oculto'); }, 30000);
+    }
+
+    async function refrescarTrabajoReal() {
       enviarPosicion();
       const r = await fetch('/api/conductor/viaje-actual');
       const { viaje } = await r.json();
@@ -253,7 +277,7 @@
 
       // Si llevaba un viaje y ha desaparecido sin que él lo finalizara: el pasajero canceló
       if (teniaViaje && !viaje && !finalizadoPorMi) {
-        alert('⚠️ VIAJE CANCELADO\n\nEl pasajero ha cancelado el viaje. No continúes hacia la recogida.');
+        avisarCancelacion();
       }
       finalizadoPorMi = false;
 
