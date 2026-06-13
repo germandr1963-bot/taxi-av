@@ -43,6 +43,11 @@
     #resumen-viaje { margin-top: 12px; font-size: 1rem; line-height: 1.7; }
     #resumen-viaje strong { color: var(--atlantico); }
     #boton-confirmar, #boton-pedir { width: 100%; font-size: 1.05rem; }
+    /* Botones principales (fondo ámbar): más grandes para que sean fáciles de pulsar en móviles pequeños */
+    .boton-grande { width: 100%; padding: 16px 22px; font-size: 1.05rem; }
+    /* Botones "Empezar de nuevo": más pequeños y un poco más separados del botón principal,
+       para evitar pulsaciones accidentales en pantallas pequeñas */
+    .boton-chico { width: 70%; display: block; margin: 20px auto 0; font-size: 0.92rem; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
@@ -131,15 +136,15 @@
         <!-- MAPA con la ruta -->
         <div id="mapa"></div>
         <div id="paso-origen" class="oculto">
-          <button class="boton-ubicacion" style="width:100%" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
-          <button class="secundario boton-ubicacion" style="width:100%" onclick="reiniciarOrigen()">🔄 Empezar de nuevo (la recogida)</button>
+          <button class="boton-grande" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
+          <button class="secundario boton-chico" onclick="reiniciarOrigen()">🔄 Empezar de nuevo (la recogida)</button>
         </div>
         <div id="paso-destino" class="oculto">
-          <button class="boton-ubicacion" style="width:100%" onclick="confirmarDestino()">✅ Confirmar destino</button>
-          <button class="secundario boton-ubicacion" style="width:100%" onclick="reiniciarDestino()">🔄 Empezar de nuevo (el destino)</button>
+          <button class="boton-grande" onclick="confirmarDestino()">✅ Confirmar destino</button>
+          <button class="secundario boton-chico" onclick="reiniciarDestino()">🔄 Empezar de nuevo (el destino)</button>
         </div>
 
-        <button id="boton-confirmar" class="oculto" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
+        <button id="boton-confirmar" class="oculto boton-grande" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
 
         <!-- Información del viaje: aparte de la solicitud, debajo de la confirmación -->
         <div id="info-viaje" class="oculto">
@@ -147,9 +152,8 @@
           <div id="resumen-viaje"></div>
         </div>
 
-        <button id="boton-pedir" class="oculto" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
-        <button id="boton-reiniciar-grande" class="secundario oculto" onclick="reiniciarSeleccion()"
-          style="width:100%;font-size:1.05rem">🔄 Empezar de nuevo (cambiar el viaje)</button>
+        <button id="boton-reiniciar-grande" class="secundario oculto boton-chico" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo (cambiar el viaje)</button>
+        <button id="boton-pedir" class="oculto boton-grande" onclick="pedirTaxi()">🚖 Pedir taxi ahora</button>
       </div>
 
       <!-- ===== Valoración del viaje (opcional, al terminar) ===== -->
@@ -172,6 +176,7 @@
       <div class="tarjeta oculto" id="tarjeta-viaje">
         <h2 style="margin-top:0">Tu viaje</h2>
         <div id="estado-viaje" style="padding:12px;background:#FDF3DC;border-radius:8px;font-size:1rem"></div>
+        <div id="nota-viaje" class="oculto" style="margin-top:8px;padding:10px 12px;background:#EAF4F6;border-left:4px solid var(--costa);border-radius:6px;font-size:0.9rem"></div>
         <div id="eta-viaje" class="oculto" style="margin-top:8px;padding:10px 12px;background:#EAF4F6;border-left:4px solid var(--luminoso);border-radius:6px;font-size:1rem;font-weight:600"></div>
         <div id="mapa-viaje" style="height:300px;border-radius:12px;border:1px solid var(--borde);margin-top:12px" class="oculto"></div>
         <div id="detalle-viaje" style="margin-top:12px;font-size:0.95rem"></div>
@@ -603,6 +608,31 @@
       en_curso: '🛣️ Viaje en curso. ¡Buen camino!'
     };
 
+    // Texto preparado para el futuro sistema de SMS (Fase de mensajería, aún sin activar):
+    // se enviará al pasajero si el conductor marca "He llegado" y no lo encuentra en el punto.
+    const TEXTO_SMS_ESPERA_PENDIENTE =
+      'Su taxista espera por usted en el punto acordado. Le recordamos que la espera sin coste adicional es de 10 minutos.';
+
+    // Avisos según el estado del viaje: ventana de cancelación gratuita y tiempo de espera del taxista
+    async function actualizarNotaViaje(viaje) {
+      const nota = document.getElementById('nota-viaje');
+      if (viaje.estado === 'solicitado') {
+        let minutos = 5;
+        try {
+          const politica = await (await fetch('/api/ajustes/cancelacion')).json();
+          if (politica.activa) minutos = politica.minutos_gratis;
+        } catch (e) { /* si falla, se mantiene el valor por defecto */ }
+        nota.textContent = '⏳ En cuanto se asigne tu conductor, tendrás ' + minutos +
+          ' minutos para cancelar sin coste si lo necesitas.';
+        nota.classList.remove('oculto');
+      } else if (viaje.estado === 'asignado') {
+        nota.textContent = '🕐 Tu taxista espera un máximo de 10 minutos en el punto de recogida. Si no te encuentra, te llamará.';
+        nota.classList.remove('oculto');
+      } else {
+        nota.classList.add('oculto');
+      }
+    }
+
     async function pedirTaxi() {
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
@@ -739,6 +769,7 @@
       instruccion('🚕 Tienes un viaje en marcha. Esta pantalla se actualiza sola.');
       document.getElementById('estado-viaje').textContent =
         TEXTOS_ESTADO_VIAJE[viaje.estado] || viaje.estado;
+      actualizarNotaViaje(viaje);
 
       let detalle =
         '<strong>Viaje nº ' + viaje.id + '</strong><br>' +
