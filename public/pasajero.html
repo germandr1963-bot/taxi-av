@@ -48,6 +48,18 @@
     /* "Empezar de nuevo": mismo ancho que los botones amarillos, tamaño normal */
     .boton-ancho { width: 100%; }
     .nota-precio { font-size: 0.82rem; color: #5a6c79; }
+    /* Selector de vehículo: tarjetas en fila horizontal con scroll */
+    .tarjetas-categorias { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; -webkit-overflow-scrolling: touch; }
+    .tarjeta-categoria {
+      flex: 0 0 116px; border: 2px solid var(--borde); border-radius: 12px;
+      padding: 8px; text-align: center; cursor: pointer; background: #fff;
+    }
+    .tarjeta-categoria.seleccionada { border-color: var(--luminoso); box-shadow: 0 0 0 2px var(--luminoso); }
+    .tarjeta-categoria img, .tarjeta-categoria-sinfoto {
+      width: 100%; height: 64px; object-fit: cover; border-radius: 8px; background: #EAF4F6;
+    }
+    .tarjeta-categoria-sinfoto { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+    .capacidad-categoria { margin-top: 6px; font-size: 0.8rem; color: var(--tinta); }
     .icono-taxi { font-size: 19px; text-align: center; line-height: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
     .fila-estrellas { font-size: 2rem; letter-spacing: 6px; cursor: pointer; user-select: none; }
     .fila-estrellas span { color: #C9D4DC; }
@@ -144,6 +156,12 @@
         </div>
 
         <button id="boton-confirmar" class="oculto boton-grande" onclick="confirmarPuntos()">✅ Confirmar recogida y destino</button>
+
+        <!-- Selector de vehículo: aparece tras confirmar recogida y destino -->
+        <div id="selector-categoria" class="oculto">
+          <h2>Elige tu vehículo</h2>
+          <div id="tarjetas-categorias" class="tarjetas-categorias"></div>
+        </div>
 
         <!-- Información del viaje: solo aparece tras confirmar, justo antes de pedir el taxi -->
         <div id="info-viaje" class="oculto">
@@ -283,8 +301,18 @@
     const LIMITES_CANARIAS = [[27.2, -18.6], [29.6, -13.0]];
     const CENTRO_GRAN_CANARIA = [27.96, -15.59];
 
-    // TARIFA PROVISIONAL (orientativa, ajustable en el futuro desde el panel)
-    const TARIFA = { base: 3.00, porKm: 0.70, porMin: 0.10 };
+    // TARIFICADOR PROVISIONAL (igual que en el servidor: km diurno/nocturno + suplemento;
+    // la bajada de bandera depende de la categoría elegida)
+    const TARIFA = { porKmDiurno: 0.80, porKmNocturno: 0.85, suplemento: 0.50 };
+    let categoriasDisponibles = [];
+    let diurnoActual = true;
+    let categoriaSeleccionada = null;
+
+    function precioEstimado(km, categoria) {
+      const bajada = diurnoActual ? Number(categoria.bajada_diurna) : Number(categoria.bajada_nocturna);
+      const porKm = diurnoActual ? TARIFA.porKmDiurno : TARIFA.porKmNocturno;
+      return bajada + km * porKm + TARIFA.suplemento;
+    }
 
     function instruccion(html) {
       document.getElementById('instruccion-principal').innerHTML = html;
@@ -469,6 +497,9 @@
       document.getElementById('resultados-destino').classList.add('oculto');
       document.getElementById('resumen-viaje').innerHTML = '';
       document.getElementById('info-viaje').classList.add('oculto');
+      document.getElementById('selector-categoria').classList.add('oculto');
+      document.getElementById('tarjetas-categorias').innerHTML = '';
+      categoriaSeleccionada = null;
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-reiniciar-grande').classList.add('oculto');
@@ -525,16 +556,16 @@
     }
 
     function pintarResumen() {
-      if (!rutaActual) return;
+      if (!rutaActual || !categoriaSeleccionada) return;
       const km = rutaActual.km;
       const min = rutaActual.min;
-      const precio = precioEstimado(km, min || 0);
+      const precio = precioEstimado(km, categoriaSeleccionada);
       let html = '🛣️ Recorrido: <strong>' + km.toFixed(1) + ' km</strong>';
       if (min !== null) html += '<br>⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
       html += '<br>💶 Precio inicial: <strong>~' + precio.toFixed(2) + ' €</strong>';
       html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
-      // El cuadro "Información del viaje" se muestra al confirmar recogida y destino, no antes
+      // El cuadro "Información del viaje" se muestra al elegir el vehículo
     }
 
     function actualizarEstado() {
@@ -586,15 +617,64 @@
       document.getElementById('direccion-origen').disabled = true;
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
-      instruccion('✅ Recogida y destino confirmados. Si quieres cambiarlos, pulsa "Empezar de nuevo".');
-      document.getElementById('info-viaje').classList.remove('oculto');
+      instruccion('🚗 Elige tu vehículo. Si quieres cambiar el viaje, pulsa "Empezar de nuevo".');
       // Vista de un tramo amplio alrededor de la recogida (la isla entera no aporta;
       // si el cliente quiere ver más, amplía él mismo con los dedos)
       const o = marcadorOrigen.getLatLng();
       mapa.flyTo([o.lat, o.lng], 13, { duration: 0.8 });
       irA('mapa');
-      document.getElementById('boton-pedir').classList.remove('oculto');
+      cargarCategoriasDisponibles();
+    }
+
+    // ============================================================
+    // SELECTOR DE VEHÍCULO — categorías activas y disponibles hoy
+    // ============================================================
+    async function cargarCategoriasDisponibles() {
+      const cont = document.getElementById('tarjetas-categorias');
+      const selector = document.getElementById('selector-categoria');
+      selector.classList.remove('oculto');
+      cont.innerHTML = '<p class="sub">Buscando vehículos disponibles…</p>';
+      try {
+        const r = await fetch('/api/categorias-disponibles');
+        const datos = await r.json();
+        categoriasDisponibles = datos.categorias || [];
+        diurnoActual = datos.diurno;
+      } catch (e) {
+        categoriasDisponibles = [];
+      }
+      pintarTarjetasCategorias();
+      irA('selector-categoria');
+    }
+
+    function pintarTarjetasCategorias() {
+      const cont = document.getElementById('tarjetas-categorias');
+      if (!categoriasDisponibles.length) {
+        cont.innerHTML = '<p class="sub">No hay vehículos disponibles en este momento. Inténtalo de nuevo en unos minutos.</p>';
+        return;
+      }
+      cont.innerHTML = categoriasDisponibles.map(cat => `
+        <div class="tarjeta-categoria${categoriaSeleccionada && categoriaSeleccionada.id === cat.id ? ' seleccionada' : ''}"
+             onclick="elegirCategoria(${cat.id})">
+          ${cat.foto ? '<img src="' + cat.foto + '" alt="">' : '<div class="tarjeta-categoria-sinfoto">🚖</div>'}
+          <div class="capacidad-categoria">👤 ${cat.capacidad_pasajeros} · 🧳 ${escapar(cat.capacidad_maletas)}</div>
+        </div>
+      `).join('');
+    }
+
+    function escapar(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto == null ? '' : String(texto);
+      return div.innerHTML;
+    }
+
+    function elegirCategoria(id) {
+      categoriaSeleccionada = categoriasDisponibles.find(c => c.id === id) || null;
+      pintarTarjetasCategorias();
+      pintarResumen();
+      document.getElementById('info-viaje').classList.remove('oculto');
       document.getElementById('boton-reiniciar-grande').classList.remove('oculto');
+      document.getElementById('boton-pedir').classList.remove('oculto');
+      irA('info-viaje');
     }
 
     // ============================================================
@@ -632,6 +712,10 @@
     }
 
     async function pedirTaxi() {
+      if (!categoriaSeleccionada) {
+        alert('Elige primero un vehículo.');
+        return;
+      }
       const o = marcadorOrigen.getLatLng();
       const d = marcadorDestino.getLatLng();
       const datos = {
@@ -640,7 +724,8 @@
         origen_direccion: direccionOrigen,
         destino_lat: d.lat,
         destino_lng: d.lng,
-        destino_direccion: direccionDestino
+        destino_direccion: direccionDestino,
+        categoria_id: categoriaSeleccionada.id
       };
       const r = await fetch('/api/pasajero/viaje', {
         method: 'POST',

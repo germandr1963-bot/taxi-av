@@ -73,11 +73,11 @@
       </div>
 
       <h2>Categorías de vehículos</h2>
-      <p class="sub" style="margin-bottom:10px">Solo las categorías activas se ofrecen a los taxistas en el alta. Activa el resto cuando quieras ampliar la flota.</p>
+      <p class="sub" style="margin-bottom:10px">Activa = existe en el sistema (se ofrece a los taxistas en el alta). Disponible = se ofrece HOY al cliente en el selector de vehículo.</p>
       <div class="tabla-envoltura">
         <table>
           <thead>
-            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Descripción</th><th>Foto</th><th>Estado</th><th>Acción</th></tr>
+            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Bajada (diurna / nocturna)</th><th>Foto</th><th>Activa</th><th>Disponible</th><th>Acción</th></tr>
           </thead>
           <tbody id="tabla-categorias"></tbody>
         </table>
@@ -435,17 +435,24 @@
           <td>${cat.capacidad_pasajeros}</td>
           <td>${escapar(cat.capacidad_maletas)}</td>
           <td>${cat.limite_sillas}</td>
-          <td style="white-space:normal">${escapar(cat.descripcion || '')}</td>
+          <td>${Number(cat.bajada_diurna).toFixed(2)} € / ${Number(cat.bajada_nocturna).toFixed(2)} €</td>
           <td>
             ${cat.tiene_foto ? '✅' : '—'}
             <button class="secundario" style="margin-top:0;padding:6px 10px;font-size:0.8rem" onclick="elegirFotoCategoria(${cat.id})">📷 ${cat.tiene_foto ? 'Cambiar' : 'Subir'}</button>
           </td>
-          <td><span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span></td>
+          <td>
+            <span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span><br>
+            <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:4px;padding:6px 12px;font-size:0.8rem"
+              onclick="alternarCategoria(${cat.id}, ${!cat.activa})">${cat.activa ? 'Desactivar' : 'Activar'}</button>
+          </td>
+          <td>
+            <span class="etiqueta ${cat.disponible ? 'aprobado' : 'pendiente'}">${cat.disponible ? 'DISPONIBLE' : 'no disponible'}</span><br>
+            <button class="${cat.disponible ? 'peligro' : ''}" style="margin-top:4px;padding:6px 12px;font-size:0.8rem"
+              onclick="alternarDisponible(${cat.id}, ${!cat.disponible})">${cat.disponible ? 'Quitar de hoy' : 'Ofrecer hoy'}</button>
+          </td>
           <td>
             <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
               onclick="editarCategoria(${cat.id})">✏️ Editar</button>
-            <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
-              onclick="alternarCategoria(${cat.id}, ${!cat.activa})">${cat.activa ? 'Desactivar' : 'Activar'}</button>
           </td>
         </tr>
       `).join('');
@@ -470,6 +477,10 @@
         <input id="cat-sillas" type="number" min="0" max="6" value="${cat.limite_sillas}">
         <label>Descripción</label>
         <input id="cat-descripcion" type="text" value="${escapar(cat.descripcion || '')}">
+        <label>Bajada de bandera diurna (€, 6:00-22:00)</label>
+        <input id="cat-bajada-diurna" type="number" step="0.01" min="0" value="${Number(cat.bajada_diurna).toFixed(2)}">
+        <label>Bajada de bandera nocturna (€, 22:00-6:00)</label>
+        <input id="cat-bajada-nocturna" type="number" step="0.01" min="0" value="${Number(cat.bajada_nocturna).toFixed(2)}">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button style="margin-top:10px" onclick="guardarCategoria(${cat.id})">💾 Guardar cambios</button>
           <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
@@ -485,7 +496,9 @@
           capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
           capacidad_maletas: document.getElementById('cat-maletas').value,
           limite_sillas: document.getElementById('cat-sillas').value,
-          descripcion: document.getElementById('cat-descripcion').value
+          descripcion: document.getElementById('cat-descripcion').value,
+          bajada_diurna: document.getElementById('cat-bajada-diurna').value,
+          bajada_nocturna: document.getElementById('cat-bajada-nocturna').value
         })
       });
       const respuesta = await r.json();
@@ -500,6 +513,15 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activa })
+      });
+      await cargarCategorias();
+    }
+
+    async function alternarDisponible(id, disponible) {
+      await fetch('/api/admin/categorias/' + id + '/disponible', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disponible })
       });
       await cargarCategorias();
     }
