@@ -107,8 +107,52 @@
 
       <h2>Conductores</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button onclick="mostrarFormularioConductor()">➕ Añadir conductor</button>
         <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(true)">💬 Permitir contacto a TODOS</button>
         <button class="peligro" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(false)">🔇 Quitar contacto a TODOS</button>
+      </div>
+
+      <!-- Formulario de alta de conductor desde el admin -->
+      <div class="tarjeta oculto" id="formulario-conductor-admin" style="border:2px solid var(--costa);max-width:560px;margin-bottom:18px">
+        <h2 style="margin-top:0">➕ Añadir conductor</h2>
+        <p class="sub">El conductor pasa por la oficina con su documentación. La foto se sube desde aquí y queda aprobada directamente.</p>
+
+        <label>Nombre completo</label><input id="ac-nombre" type="text">
+        <label>Email (será su usuario)</label><input id="ac-email" type="email">
+        <label>Teléfono</label><input id="ac-telefono" type="tel">
+        <label>Contraseña provisional</label><input id="ac-password" type="text" placeholder="Mínimo 6 caracteres">
+        <label>Documento de identidad (DNI/NIE)</label><input id="ac-documento" type="text">
+        <label>Dirección</label><input id="ac-direccion" type="text">
+        <label>Código postal</label><input id="ac-cp" type="text">
+        <label>Municipio de residencia</label><input id="ac-municipio" type="text">
+        <label>Municipio de la licencia</label><input id="ac-municipio-licencia" type="text">
+        <label>Número de licencia municipal</label><input id="ac-numero-licencia" type="text">
+        <label>Central de flota (opcional)</label><input id="ac-central" type="text">
+        <label>Categoría del vehículo</label>
+        <select id="ac-categoria"></select>
+        <label>Marca</label>
+        <select id="ac-marca" onchange="cargarModelosAdmin()"><option value="">Selecciona marca…</option><option value="__nueva">➕ Otra marca</option></select>
+        <div id="ac-marca-nueva-caja" class="oculto"><label>Nueva marca</label><input id="ac-marca-nueva" type="text"></div>
+        <label>Modelo</label>
+        <select id="ac-modelo"><option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option></select>
+        <div id="ac-modelo-nuevo-caja" class="oculto"><label>Nuevo modelo</label><input id="ac-modelo-nuevo" type="text"></div>
+        <label>Matrícula</label><input id="ac-matricula" type="text">
+        <label>Número de taxi</label><input id="ac-numero-taxi" type="text">
+        <label>Plazas</label><input id="ac-plazas" type="number" min="1" max="12" value="4">
+        <label>Isla</label>
+        <select id="ac-isla">
+          <option>Gran Canaria</option><option>Tenerife</option><option>Lanzarote</option>
+          <option>Fuerteventura</option><option>La Palma</option><option>La Gomera</option><option>El Hierro</option>
+        </select>
+        <label>Foto del conductor (opcional, queda aprobada)</label>
+        <input type="file" id="ac-foto-input" accept="image/*" onchange="previsualizarFotoAdmin()">
+        <canvas id="ac-foto-canvas" style="display:none"></canvas>
+        <img id="ac-foto-preview" style="max-width:180px;border-radius:8px;margin-top:6px;display:none">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+          <button onclick="crearConductorAdmin()">💾 Crear conductor</button>
+          <button class="secundario" onclick="document.getElementById('formulario-conductor-admin').classList.add('oculto')">Cancelar</button>
+        </div>
+        <div id="ac-mensaje" class="mensaje"></div>
       </div>
       <div class="tabla-envoltura">
         <table>
@@ -765,6 +809,120 @@
       const div = document.createElement('div');
       div.textContent = texto == null ? '' : String(texto);
       return div.innerHTML;
+    }
+
+    let catalogoAdmin = null;
+
+    async function mostrarFormularioConductor() {
+      const form = document.getElementById('formulario-conductor-admin');
+      form.classList.remove('oculto');
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (catalogoAdmin) return;
+      const r = await fetch('/api/conductor/catalogo');
+      catalogoAdmin = await r.json();
+      // Categorías
+      const selCat = document.getElementById('ac-categoria');
+      selCat.innerHTML = catalogoAdmin.categorias.map(c => `<option value="${c.id}">${escapar(c.nombre)}</option>`).join('');
+      // Marcas
+      const selMarca = document.getElementById('ac-marca');
+      catalogoAdmin.marcas.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id; opt.textContent = m.nombre;
+        selMarca.insertBefore(opt, selMarca.lastElementChild);
+      });
+    }
+
+    function cargarModelosAdmin() {
+      const marcaId = parseInt(document.getElementById('ac-marca').value, 10);
+      const esNueva = document.getElementById('ac-marca').value === '__nueva';
+      document.getElementById('ac-marca-nueva-caja').classList.toggle('oculto', !esNueva);
+      const selModelo = document.getElementById('ac-modelo');
+      selModelo.innerHTML = '<option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option>';
+      if (!catalogoAdmin || !marcaId) return;
+      const marca = catalogoAdmin.marcas.find(m => m.id === marcaId);
+      if (!marca) return;
+      marca.modelos.forEach(mo => {
+        const opt = document.createElement('option');
+        opt.value = mo.id; opt.textContent = mo.nombre;
+        selModelo.insertBefore(opt, selModelo.lastElementChild);
+      });
+    }
+
+    document.addEventListener('change', function(e) {
+      if (e.target.id === 'ac-modelo') {
+        document.getElementById('ac-modelo-nuevo-caja').classList.toggle('oculto', e.target.value !== '__nuevo');
+      }
+    });
+
+    async function previsualizarFotoAdmin() {
+      const archivo = document.getElementById('ac-foto-input').files[0];
+      if (!archivo) return;
+      const reader = new FileReader();
+      reader.onload = async function(ev) {
+        const imagen = new Image();
+        imagen.onload = async function() {
+          if (imagen.decode) try { await imagen.decode(); } catch(e) {}
+          const escala = Math.min(1, 600 / imagen.width);
+          const lienzo = document.createElement('canvas');
+          lienzo.width = Math.round(imagen.width * escala);
+          lienzo.height = Math.round(imagen.height * escala);
+          const ctx = lienzo.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+          ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+          const preview = document.getElementById('ac-foto-preview');
+          preview.src = lienzo.toDataURL('image/jpeg', 0.82);
+          preview.style.display = 'block';
+        };
+        imagen.src = ev.target.result;
+      };
+      reader.readAsDataURL(archivo);
+    }
+
+    async function crearConductorAdmin() {
+      const marcaVal = document.getElementById('ac-marca').value;
+      const modeloVal = document.getElementById('ac-modelo').value;
+      const fotoPreview = document.getElementById('ac-foto-preview');
+      const datos = {
+        nombre: document.getElementById('ac-nombre').value,
+        email: document.getElementById('ac-email').value,
+        telefono: document.getElementById('ac-telefono').value,
+        password: document.getElementById('ac-password').value,
+        documento: document.getElementById('ac-documento').value,
+        direccion: document.getElementById('ac-direccion').value,
+        cp: document.getElementById('ac-cp').value,
+        municipio: document.getElementById('ac-municipio').value,
+        municipio_licencia: document.getElementById('ac-municipio-licencia').value,
+        numero_licencia: document.getElementById('ac-numero-licencia').value,
+        central_flota: document.getElementById('ac-central').value,
+        categoria_id: document.getElementById('ac-categoria').value,
+        marca_id: marcaVal === '__nueva' ? '' : marcaVal,
+        marca_nueva: marcaVal === '__nueva' ? document.getElementById('ac-marca-nueva').value : '',
+        modelo_id: modeloVal === '__nuevo' ? '' : modeloVal,
+        modelo_nuevo: modeloVal === '__nuevo' ? document.getElementById('ac-modelo-nuevo').value : '',
+        matricula: document.getElementById('ac-matricula').value,
+        numero_taxi: document.getElementById('ac-numero-taxi').value,
+        plazas: document.getElementById('ac-plazas').value,
+        isla: document.getElementById('ac-isla').value,
+        foto: fotoPreview.style.display !== 'none' ? fotoPreview.src : null
+      };
+      const msg = document.getElementById('ac-mensaje');
+      const r = await fetch('/api/admin/conductores/crear', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        msg.textContent = '✅ Conductor creado y aprobado.';
+        msg.className = 'mensaje exito';
+        setTimeout(() => {
+          document.getElementById('formulario-conductor-admin').classList.add('oculto');
+          msg.textContent = '';
+        }, 2000);
+        cargarConductores();
+      } else {
+        msg.textContent = respuesta.error;
+        msg.className = 'mensaje error';
+      }
     }
 
     async function cargarConductores() {

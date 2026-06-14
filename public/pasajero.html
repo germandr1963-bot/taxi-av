@@ -164,8 +164,15 @@
         </div>
         <ul id="resultados-destino" class="resultados oculto"></ul>
 
-        <!-- MAPA con la ruta -->
-        <div id="mapa"></div>
+        <!-- MAPA con icono fijo en el centro: el mapa se mueve, el icono queda siempre en el centro -->
+        <div id="mapa-wrapper" style="position:relative">
+          <div id="mapa"></div>
+          <!-- Icono fijo: solo visible mientras se está ajustando origen o destino, no durante el viaje -->
+          <div id="icono-centro" class="oculto" style="
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-100%);
+            pointer-events:none; z-index:1000; font-size:2rem; line-height:1; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+          ">📍</div>
+        </div>
         <div id="paso-origen" class="oculto">
           <button class="boton-grande" onclick="confirmarOrigen()">✅ Confirmar recogida</button>
           <button class="secundario boton-ancho" onclick="reiniciarOrigen()">🔄 Empezar de nuevo origen</button>
@@ -242,7 +249,16 @@
         <input id="comentario-valoracion" type="text" maxlength="500" placeholder="Cuéntanos tu experiencia">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="enviarValoracion()">Enviar valoración</button>
-          <button class="secundario" onclick="location.reload()">Omitir</button>
+          <button class="secundario" onclick="despuesDelViaje()">Omitir</button>
+        </div>
+      </div>
+
+      <!-- Botones tras finalizar o valorar el viaje -->
+      <div class="tarjeta oculto" id="tarjeta-fin-viaje" style="text-align:center">
+        <h2 style="margin-top:0">¡Gracias por viajar con nosotros!</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+          <button onclick="window.location.href='/'" style="flex:1;min-width:140px">🏠 Volver al inicio</button>
+          <button class="secundario" onclick="pedirOtroTaxi()" style="flex:1;min-width:140px">🚖 Pedir otro taxi</button>
         </div>
       </div>
 
@@ -289,6 +305,12 @@
     }
 
     function mostrarPanel(nombre) {
+      // Tras login o registro → siempre al portal de servicios primero
+      window.location.href = '/';
+    }
+
+    function mostrarPanelDirecto(nombre) {
+      // Sesión ya activa al llegar desde el portal → mostrar el mapa directamente
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
       document.getElementById('saludo').textContent = 'Hola, ' + nombre;
@@ -337,7 +359,7 @@
       const s = await r.json();
       if (s.rol === 'pasajero') {
         const yo = await (await fetch('/api/pasajero/me')).json();
-        mostrarPanel(yo.usuario.nombre);
+        mostrarPanelDirecto(yo.usuario.nombre);
       }
     })();
 
@@ -406,8 +428,13 @@
       }
     }
 
-    // El usuario da por buena la recogida: pasamos directos al destino
+    // El usuario da por buena la recogida: tomamos el centro del mapa como coordenada exacta
     function confirmarOrigen() {
+      const centro = mapa.getCenter();
+      // Poner un marcador fijo en el punto confirmado
+      if (marcadorOrigen) mapa.removeLayer(marcadorOrigen);
+      marcadorOrigen = L.marker([centro.lat, centro.lng]).addTo(mapa);
+      mostrarIconoCentro(false);
       origenConfirmado = true;
       actualizarEstado();
       const caja = document.getElementById('direccion-destino');
@@ -423,6 +450,7 @@
       document.getElementById('direccion-origen').value = '';
       if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
       rutaActual = null;
+      mostrarIconoCentro(true);
       actualizarEstado();
       const caja = document.getElementById('direccion-origen');
       caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -431,6 +459,10 @@
 
     // El usuario da por bueno el destino: pasamos a la decisión final con precios
     function confirmarDestino() {
+      const centro = mapa.getCenter();
+      if (marcadorDestino) mapa.removeLayer(marcadorDestino);
+      marcadorDestino = L.marker([centro.lat, centro.lng]).addTo(mapa);
+      mostrarIconoCentro(false);
       destinoConfirmado = true;
       actualizarEstado();
     }
@@ -443,6 +475,7 @@
       document.getElementById('direccion-destino').value = '';
       if (lineaRuta) { mapa.removeLayer(lineaRuta); lineaRuta = null; }
       rutaActual = null;
+      mostrarIconoCentro(true);
       actualizarEstado();
       const caja = document.getElementById('direccion-destino');
       caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -462,35 +495,43 @@
         attribution: '&copy; OpenStreetMap'
       }).addTo(mapa);
 
-      mapa.on('click', function (e) {
+      mapa.on('moveend', function () {
+        // Mientras se ajusta el punto (origen o destino), actualizamos la dirección en tiempo real
         if (confirmado) return;
-        if (!origenConfirmado) ponerMarcador('origen', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
-        else ponerMarcador('destino', e.latlng.lat, e.latlng.lng, 'Punto marcado en el mapa');
+        const ajustando = (!origenConfirmado && marcadorOrigen === null) || (!origenConfirmado) ||
+                          (origenConfirmado && !destinoConfirmado);
+        if (!ajustando) return;
+        const centro = mapa.getCenter();
+        if (!origenConfirmado) {
+          if (marcadorOrigen) mapa.removeLayer(marcadorOrigen);
+          marcadorOrigen = null;
+          direccionOrigen = 'Punto seleccionado en el mapa';
+        } else if (!destinoConfirmado) {
+          if (marcadorDestino) mapa.removeLayer(marcadorDestino);
+          marcadorDestino = null;
+          direccionDestino = 'Punto seleccionado en el mapa';
+        }
       });
 
       setTimeout(() => mapa.invalidateSize(), 200);
     }
 
+    function mostrarIconoCentro(visible) {
+      document.getElementById('icono-centro').classList.toggle('oculto', !visible);
+    }
+
     function ponerMarcador(cual, lat, lng, direccion) {
       const esOrigen = (cual === 'origen');
-      let marcador = esOrigen ? marcadorOrigen : marcadorDestino;
+      // Quitar el marcador anterior si existe
+      if (esOrigen && marcadorOrigen) { mapa.removeLayer(marcadorOrigen); marcadorOrigen = null; }
+      if (!esOrigen && marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
 
-      if (marcador) {
-        marcador.setLatLng([lat, lng]);
-      } else {
-        marcador = L.marker([lat, lng], { draggable: true });
-        marcador.addTo(mapa);
-        marcador.on('dragend', function () {
-          actualizarEstado();
-        });
-        if (esOrigen) marcadorOrigen = marcador; else marcadorDestino = marcador;
-      }
+      if (esOrigen) { direccionOrigen = direccion; origenConfirmado = false; }
+      else { direccionDestino = direccion; destinoConfirmado = false; }
 
-      marcador.bindPopup(esOrigen ? '📍 Recogida (arrástrame para ajustar)' : '🏁 Destino (arrástrame para ajustar)').openPopup();
-      if (esOrigen) direccionOrigen = direccion; else direccionDestino = direccion;
-      if (esOrigen) origenConfirmado = false; else destinoConfirmado = false;
-      // Acercarse al punto recién marcado para verlo y ajustarlo con comodidad
+      // El mapa vuela al punto buscado; el icono fijo en el centro indica la posición
       mapa.flyTo([lat, lng], Math.max(mapa.getZoom(), 16), { duration: 0.8 });
+      mostrarIconoCentro(true);
       actualizarEstado();
     }
 
@@ -584,6 +625,7 @@
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-reiniciar-grande').classList.add('oculto');
+      mostrarIconoCentro(true);
       origenConfirmado = false;
       destinoConfirmado = false;
       actualizarEstado();
@@ -656,31 +698,38 @@
       document.getElementById('boton-confirmar').classList.add('oculto');
 
       if (!marcadorOrigen) {
-        // Paso 1: falta la recogida
-        instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.');
+        // Paso 1: falta la recogida — icono fijo visible para guiar
+        mostrarIconoCentro(true);
+        instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, o mueve el mapa hasta el punto exacto y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
+        pasoOrigen.classList.remove('oculto');
 
       } else if (!origenConfirmado) {
-        // Paso 2: comprobar y confirmar SOLO la recogida
-        instruccion('🧐 Comprueba el punto de recogida: arrástralo si hace falta y pulsa <strong>Confirmar recogida</strong>.');
+        // Paso 2: ajustar recogida moviendo el mapa
+        mostrarIconoCentro(true);
+        instruccion('🧐 Mueve el mapa hasta el punto exacto de recogida y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoOrigen.classList.remove('oculto');
         irA('mapa');
 
       } else if (!marcadorDestino) {
-        // Paso 3: falta el destino
-        instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o toca el mapa.');
+        // Paso 3: falta el destino — icono visible de nuevo
+        mostrarIconoCentro(true);
+        instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o mueve el mapa y pulsa <strong>Confirmar destino</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
+        pasoDestino.classList.remove('oculto');
 
       } else if (!destinoConfirmado) {
-        // Paso 4: comprobar y confirmar SOLO el destino
-        instruccion('🧐 Comprueba el punto de destino: arrástralo si hace falta y pulsa <strong>Confirmar destino</strong>.');
+        // Paso 4: ajustar destino moviendo el mapa
+        mostrarIconoCentro(true);
+        instruccion('🧐 Mueve el mapa hasta el punto exacto de destino y pulsa <strong>Confirmar destino</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoDestino.classList.remove('oculto');
         irA('mapa');
 
       } else {
-        // Paso 5: decisión final, con la información del viaje y los precios
+        // Paso 5: decisión final
+        mostrarIconoCentro(false);
         instruccion('✏️ Revisa el recorrido y la información del viaje. Si todo está bien, pulsa <strong>Confirmar recogida y destino</strong>.');
         document.getElementById('boton-confirmar').classList.remove('oculto');
         irA('mapa');
@@ -690,16 +739,11 @@
 
     function confirmarPuntos() {
       confirmado = true;
-      marcadorOrigen.dragging.disable();
-      marcadorDestino.dragging.disable();
-      marcadorOrigen.closePopup();
-      marcadorDestino.closePopup();
+      mostrarIconoCentro(false);
       document.getElementById('direccion-origen').disabled = true;
       document.getElementById('direccion-destino').disabled = true;
       document.getElementById('boton-confirmar').classList.add('oculto');
       instruccion('🚗 Elige tu vehículo. Si quieres cambiar el viaje, pulsa "Empezar de nuevo".');
-      // Vista de un tramo amplio alrededor de la recogida (la isla entera no aporta;
-      // si el cliente quiere ver más, amplía él mismo con los dedos)
       const o = marcadorOrigen.getLatLng();
       mapa.flyTo([o.lat, o.lng], 13, { duration: 0.8 });
       irA('mapa');
@@ -1071,8 +1115,7 @@
           // El conductor marcó el viaje como terminado: ofrecer la valoración
           mostrarValoracion();
         } else {
-          alert('Tu viaje ha terminado. ¡Gracias por viajar con nosotros! 🚖');
-          location.reload();
+          despuesDelViaje();
         }
       }
     }
@@ -1103,6 +1146,17 @@
       pintarEstrellas('servicio');
     }
 
+    function despuesDelViaje() {
+      document.getElementById('tarjeta-valoracion').classList.add('oculto');
+      document.getElementById('tarjeta-fin-viaje').classList.remove('oculto');
+    }
+
+    function pedirOtroTaxi() {
+      document.getElementById('tarjeta-fin-viaje').classList.add('oculto');
+      reiniciarSeleccion();
+      irA('instruccion-principal');
+    }
+
     async function enviarValoracion() {
       if (!estrellas.conductor || !estrellas.servicio) {
         alert('Marca las estrellas del conductor y del servicio (o pulsa Omitir).');
@@ -1119,7 +1173,7 @@
         })
       });
       const respuesta = await r.json();
-      if (respuesta.ok) { alert('¡Gracias por tu valoración! ⭐'); location.reload(); }
+      if (respuesta.ok) despuesDelViaje();
       else alert(respuesta.error);
     }
 
