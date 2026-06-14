@@ -17,7 +17,7 @@
 <body>
   <header class="app">
     <div style="display:flex;align-items:center;gap:10px"><img src="logo-simbolo.png" alt="Taxi - Guanche" class="logo-simbolo"><span style="font-weight:700">ADMINISTRACIÓN</span></div>
-    <a href="index.html">Inicio</a>
+    <a href="javascript:void(0)" onclick="volverInicio()">Inicio</a>
   </header>
 
   <main>
@@ -222,6 +222,11 @@
     async function cerrarSesion() {
       await fetch('/api/logout', { method: 'POST' });
       location.reload();
+    }
+
+    function volverInicio() {
+      document.getElementById('zona-panel').classList.add('oculto');
+      document.getElementById('zona-acceso').classList.remove('oculto');
     }
 
     async function cargarPanel() {
@@ -507,6 +512,9 @@
       enlace.click();
     }
 
+    let categoriasCache = [];
+    let catalogoAdmin = null;
+
     async function cargarCategorias() {
       const r = await fetch('/api/admin/categorias');
       const { categorias } = await r.json();
@@ -541,8 +549,6 @@
         </tr>
       `).join('');
     }
-
-    let categoriasCache = [];
 
     function formularioCategoria(cat) {
       return `
@@ -810,8 +816,6 @@
       div.textContent = texto == null ? '' : String(texto);
       return div.innerHTML;
     }
-
-    let catalogoAdmin = null;
 
     async function mostrarFormularioConductor() {
       const form = document.getElementById('formulario-conductor-admin');

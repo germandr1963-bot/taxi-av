@@ -9,7 +9,7 @@
 <body>
   <header class="app">
     <div style="display:flex;align-items:center;gap:10px"><img src="logo-simbolo.png" alt="Taxi - Guanche" class="logo-simbolo"><span style="font-weight:700">CONDUCTOR</span></div>
-    <a href="index.html">Inicio</a>
+    <a href="javascript:void(0)" onclick="volverInicioConductor()">Inicio</a>
   </header>
 
   <main>
@@ -118,7 +118,10 @@
 
     <!-- ===== Panel del conductor ===== -->
     <section id="zona-panel" class="oculto">
-      <h1 id="saludo">Hola</h1>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+        <h1 id="saludo" style="margin:0">Hola</h1>
+        <button class="secundario" style="margin:0;padding:8px 18px" onclick="actualizarConductor()">🔄 Actualizar</button>
+      </div>
       <p class="sub" id="texto-estado"></p>
 
       <div class="tarjeta" id="ficha-vehiculo"></div>
@@ -257,6 +260,18 @@
     // Además, mientras esté disponible o en viaje, se envía la posición GPS.
     let refrescando = false; // candado: nunca dos consultas cruzadas a la vez
     let sesionExpirada = false;
+
+    function volverInicioConductor() {
+      document.getElementById('zona-panel').classList.add('oculto');
+      document.getElementById('zona-acceso').classList.remove('oculto');
+    }
+
+    async function actualizarConductor() {
+      const btn = document.querySelector('button[onclick="actualizarConductor()"]');
+      if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
+      await refrescarTrabajo();
+      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
+    }
 
     async function refrescarTrabajo() {
       if (refrescando || sesionExpirada) return;

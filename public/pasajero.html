@@ -205,7 +205,7 @@
           </div>
 
           <div class="bloque-extra">
-            <label for="instrucciones-conductor">📝 Instrucciones para el conductor (opcional)</label>
+            <label for="instrucciones-conductor">Instrucciones para el conductor (opcional)</label>
             <input id="instrucciones-conductor" type="text" maxlength="300" placeholder="Ej.: Llamar al llegar, el portal es el azul...">
           </div>
 
@@ -698,37 +698,34 @@
       document.getElementById('boton-confirmar').classList.add('oculto');
 
       if (!marcadorOrigen) {
-        // Paso 1: falta la recogida — icono fijo visible para guiar
         mostrarIconoCentro(true);
         instruccion('📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, o mueve el mapa hasta el punto exacto y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoOrigen.classList.remove('oculto');
+        // No scroll automático: el usuario está escribiendo la dirección arriba
 
       } else if (!origenConfirmado) {
-        // Paso 2: ajustar recogida moviendo el mapa
         mostrarIconoCentro(true);
         instruccion('🧐 Mueve el mapa hasta el punto exacto de recogida y pulsa <strong>Confirmar recogida</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoOrigen.classList.remove('oculto');
-        irA('mapa');
+        irA('mapa'); // el usuario debe ver el mapa para ajustar
 
       } else if (!marcadorDestino) {
-        // Paso 3: falta el destino — icono visible de nuevo
         mostrarIconoCentro(true);
         instruccion('🏁 Recogida lista. Ahora indica tu <strong>DESTINO</strong>: escríbelo y pulsa Buscar, o mueve el mapa y pulsa <strong>Confirmar destino</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoDestino.classList.remove('oculto');
+        // No scroll automático: el usuario va a escribir el destino
 
       } else if (!destinoConfirmado) {
-        // Paso 4: ajustar destino moviendo el mapa
         mostrarIconoCentro(true);
         instruccion('🧐 Mueve el mapa hasta el punto exacto de destino y pulsa <strong>Confirmar destino</strong>.');
         document.getElementById('info-viaje').classList.add('oculto');
         pasoDestino.classList.remove('oculto');
-        irA('mapa');
+        irA('mapa'); // el usuario debe ver el mapa para ajustar
 
       } else {
-        // Paso 5: decisión final
         mostrarIconoCentro(false);
         instruccion('✏️ Revisa el recorrido y la información del viaje. Si todo está bien, pulsa <strong>Confirmar recogida y destino</strong>.');
         document.getElementById('boton-confirmar').classList.remove('oculto');
