@@ -37,7 +37,10 @@
 
     <!-- ===== Panel ===== -->
     <section id="zona-panel" class="oculto">
-      <h1>Panel de administración</h1>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h1 style="margin:0">Panel de administración</h1>
+        <button class="secundario" style="margin:0;padding:8px 18px" onclick="actualizarPanel()">🔄 Actualizar</button>
+      </div>
 
       <h2>Resumen</h2>
       <div class="cifras" id="cifras"></div>
@@ -182,6 +185,14 @@
       document.getElementById('zona-panel').classList.remove('oculto');
       await cargarCategorias();
       await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
+    }
+
+    async function actualizarPanel() {
+      const btn = document.querySelector('button[onclick="actualizarPanel()"]');
+      if (btn) { btn.textContent = '⏳ Actualizando…'; btn.disabled = true; }
+      await cargarCategorias();
+      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
+      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
     }
 
     const ETIQUETAS_FOTO = {

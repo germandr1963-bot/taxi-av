@@ -133,6 +133,12 @@
           ⚠️ VIAJE CANCELADO POR EL PASAJERO<br>
           <span style="font-weight:400;font-size:0.9rem">No continúes hacia la recogida. (Toca para cerrar este aviso.)</span>
         </div>
+        <div id="aviso-sesion-expirada" class="oculto"
+          style="background:#F5B82E;color:#0A2A43;padding:14px;border-radius:10px;font-weight:700;font-size:1.05rem;margin-bottom:10px;text-align:center">
+          ⚠️ Tu sesión ha expirado<br>
+          <span style="font-weight:400;font-size:0.9rem">Pulsa el botón para volver a conectarte sin salir de la aplicación.</span><br>
+          <button style="margin-top:10px;background:#0A2A43;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:1rem;cursor:pointer" onclick="location.reload()">🔄 Reconectarme</button>
+        </div>
         <div id="zona-solicitudes" class="oculto">
           <h2>Solicitudes pendientes</h2>
           <div id="lista-solicitudes" style="font-size:0.95rem">Cargando…</div>
@@ -250,9 +256,10 @@
     // Cada 7 segundos: ¿tengo un viaje en marcha? Si no, ¿hay solicitudes nuevas?
     // Además, mientras esté disponible o en viaje, se envía la posición GPS.
     let refrescando = false; // candado: nunca dos consultas cruzadas a la vez
+    let sesionExpirada = false;
 
     async function refrescarTrabajo() {
-      if (refrescando) return;
+      if (refrescando || sesionExpirada) return;
       refrescando = true;
       try {
         await refrescarTrabajoReal();
@@ -271,6 +278,12 @@
     async function refrescarTrabajoReal() {
       enviarPosicion();
       const r = await fetch('/api/conductor/viaje-actual');
+      if (r.status === 401) {
+        sesionExpirada = true;
+        clearInterval(sondeo);
+        document.getElementById('aviso-sesion-expirada').classList.remove('oculto');
+        return;
+      }
       const { viaje } = await r.json();
       const teniaViaje = viajeActivo;
       viajeActivo = viaje;
