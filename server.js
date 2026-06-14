@@ -641,6 +641,54 @@ app.get('/api/admin/resumen', requiereAdmin, async (req, res) => {
   });
 });
 
+// Crear conductor desde el admin (el conductor viene a la oficina con su documentación)
+app.post('/api/admin/conductores/crear', requiereAdmin, async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.nombre || !emailValido(d.email) || !d.telefono || !d.password || d.password.length < 6) {
+      return res.status(400).json({ error: 'Nombre, email, teléfono y contraseña (mínimo 6 caracteres) son obligatorios.' });
+    }
+    if (!d.documento || !d.direccion || !d.cp || !d.municipio) {
+      return res.status(400).json({ error: 'Faltan datos personales: documento, dirección, CP y municipio.' });
+    }
+    if (!d.municipio_licencia || !d.numero_licencia) {
+      return res.status(400).json({ error: 'Faltan los datos de la licencia municipal.' });
+    }
+    const categoriaId = parseInt(d.categoria_id, 10);
+    const categoria = await pool.query('SELECT id FROM categorias_vehiculos WHERE id = $1 AND activa = TRUE', [categoriaId]);
+    if (categoria.rows.length === 0) return res.status(400).json({ error: 'Elige una categoría de vehículo válida.' });
+    const vehiculo = await resolverVehiculo(d.marca_id, d.marca_nueva, d.modelo_id, d.modelo_nuevo);
+    if (!vehiculo) return res.status(400).json({ error: 'Indica la marca y el modelo del vehículo.' });
+    if (!d.matricula || !d.numero_taxi) return res.status(400).json({ error: 'Faltan la matrícula y el número de taxi.' });
+
+    const hash = await bcrypt.hash(d.password, 10);
+    const foto = d.foto || null; // foto en base64 opcional
+    const fotoEstado = foto ? 'aprobada' : 'sin_foto'; // el admin la sube, va directo a aprobada
+    const { rows } = await pool.query(
+      `INSERT INTO conductores
+        (nombre, email, telefono, password_hash, documento, direccion, cp, municipio,
+         municipio_licencia, numero_licencia, central_flota,
+         categoria_id, vehiculo_marca, vehiculo_modelo, matricula, plazas, isla, numero_taxi,
+         foto, foto_estado, estado)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'aprobado')
+       RETURNING id, nombre, email, estado`,
+      [
+        d.nombre.trim(), d.email.toLowerCase().trim(), d.telefono.trim(), hash,
+        d.documento.trim().toUpperCase(), d.direccion.trim(), d.cp.trim(), d.municipio.trim(),
+        d.municipio_licencia.trim(), d.numero_licencia.trim(), (d.central_flota || '').trim(),
+        categoriaId, vehiculo.marcaNombre, vehiculo.modeloNombre,
+        d.matricula.trim().toUpperCase(), parseInt(d.plazas, 10) || 4,
+        d.isla || 'Gran Canaria', d.numero_taxi.trim(), foto, fotoEstado
+      ]
+    );
+    res.json({ ok: true, conductor: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Ese email ya está registrado.' });
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor al crear el conductor.' });
+  }
+});
+
 app.get('/api/admin/conductores', requiereAdmin, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT c.id, c.nombre, c.email, c.telefono, c.vehiculo_marca, c.vehiculo_modelo, c.matricula,
@@ -1201,6 +1249,7 @@ app.post('/api/pasajero/viaje', requierePasajero, async (req, res) => {
        (pedido_para_nombre || '').slice(0, 120) || null,
        (pedido_para_telefono || '').slice(0, 40) || null]
     );
+    // BREVO (pendiente): el SMS de seguimiento va a pedido_para_telefono si existe, si no al teléfono del pasajero
     res.json({ ok: true, viaje: rows[0] });
   } catch (err) {
     console.error(err);
