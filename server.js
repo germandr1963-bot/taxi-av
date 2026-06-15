@@ -270,6 +270,7 @@ async function inicializarBaseDeDatos() {
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS instrucciones_conductor TEXT;`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS pedido_para_nombre TEXT;`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS pedido_para_telefono TEXT;`);
+  await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS pedido_para_mensaje TEXT;`);
 
   // Interruptor del botón "Contactar al chofer" (por conductor, gestionado por el admin)
   await pool.query(`ALTER TABLE conductores ADD COLUMN IF NOT EXISTS permite_contacto BOOLEAN DEFAULT TRUE;`);
@@ -1188,7 +1189,7 @@ app.get('/api/extras-disponibles', async (req, res) => {
 app.post('/api/pasajero/viaje', requierePasajero, async (req, res) => {
   try {
     const { origen_lat, origen_lng, origen_direccion, destino_lat, destino_lng, destino_direccion,
-            categoria_id, extras, instrucciones_conductor, pedido_para_nombre, pedido_para_telefono } = req.body;
+            categoria_id, extras, instrucciones_conductor, pedido_para_nombre, pedido_para_telefono, pedido_para_mensaje } = req.body;
 
     const oLat = parseFloat(origen_lat), oLng = parseFloat(origen_lng);
     const dLat = parseFloat(destino_lat), dLng = parseFloat(destino_lng);
@@ -1245,15 +1246,16 @@ app.post('/api/pasajero/viaje', requierePasajero, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO viajes (pasajero_id, origen_direccion, origen_lat, origen_lng,
                            destino_direccion, destino_lat, destino_lng, distancia_km, categoria_id, precio_estimado,
-                           extras, instrucciones_conductor, pedido_para_nombre, pedido_para_telefono, estado)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'solicitado')
+                           extras, instrucciones_conductor, pedido_para_nombre, pedido_para_telefono, pedido_para_mensaje, estado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'solicitado')
        RETURNING *`,
       [req.session.usuarioId, (origen_direccion || '').slice(0, 300), oLat, oLng,
        (destino_direccion || '').slice(0, 300), dLat, dLng, km.toFixed(2), categoria.rows[0].id, precioEstimado.toFixed(2),
        JSON.stringify(extrasValidos.map(e => ({ id: e.id, nombre: e.nombre, precio: Number(e.precio) }))),
        (instrucciones_conductor || '').slice(0, 300) || null,
        (pedido_para_nombre || '').slice(0, 120) || null,
-       (pedido_para_telefono || '').slice(0, 40) || null]
+       (pedido_para_telefono || '').slice(0, 40) || null,
+       (pedido_para_mensaje || '').slice(0, 300) || null]
     );
     // BREVO (pendiente): el SMS de seguimiento va a pedido_para_telefono si existe, si no al teléfono del pasajero
     res.json({ ok: true, viaje: rows[0] });
@@ -1408,7 +1410,7 @@ app.post('/api/conductor/foto', requiereConductor, async (req, res) => {
 app.get('/api/conductor/solicitudes', requiereConductor, conductorAprobado, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT v.id, v.origen_direccion, v.destino_direccion, v.distancia_km, v.solicitado_en,
-            v.extras, v.instrucciones_conductor, v.pedido_para_nombre, v.pedido_para_telefono,
+            v.extras, v.instrucciones_conductor, v.pedido_para_nombre, v.pedido_para_telefono, v.pedido_para_mensaje,
             p.nombre AS pasajero_nombre
      FROM viajes v
      JOIN pasajeros p ON p.id = v.pasajero_id
