@@ -118,14 +118,18 @@
 
         <!-- Registro -->
         <div id="formulario-registro" class="oculto">
-          <label for="registro-nombre">Nombre completo</label>
-          <input id="registro-nombre" type="text" autocomplete="name">
+          <label for="registro-nombre">Nombre</label>
+          <input id="registro-nombre" type="text" autocomplete="given-name" placeholder="Tu nombre">
+          <label for="registro-apellido">Apellido</label>
+          <input id="registro-apellido" type="text" autocomplete="family-name" placeholder="Tu apellido">
           <label for="registro-email">Email</label>
-          <input id="registro-email" type="email" autocomplete="email">
+          <input id="registro-email" type="email" autocomplete="email" placeholder="tu@email.com">
           <label for="registro-telefono">Teléfono</label>
-          <input id="registro-telefono" type="tel" autocomplete="tel">
+          <input id="registro-telefono" type="tel" autocomplete="tel" placeholder="+34 600 000 000">
           <label for="registro-password">Contraseña (mínimo 6 caracteres)</label>
           <input id="registro-password" type="password" autocomplete="new-password">
+          <label for="registro-foto" style="margin-top:8px">Foto de perfil <span style="color:#888;font-weight:400">(opcional)</span></label>
+          <input id="registro-foto" type="file" accept="image/*" style="font-size:0.9rem;padding:4px 0">
           <button onclick="registrarse()">Crear cuenta</button>
         </div>
 
@@ -318,11 +322,36 @@
     }
 
     async function registrarse() {
+      // Comprimir foto si se ha seleccionado (opcional)
+      let fotoBase64 = null;
+      const archivoFoto = document.getElementById('registro-foto').files[0];
+      if (archivoFoto) {
+        fotoBase64 = await new Promise(resolve => {
+          const reader = new FileReader();
+          const img = new Image();
+          reader.onload = e => {
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX = 600;
+              let w = img.width, h = img.height;
+              if (w > h && w > MAX) { h = h * MAX / w; w = MAX; }
+              else if (h > MAX) { w = w * MAX / h; h = MAX; }
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(archivoFoto);
+        });
+      }
       const datos = {
         nombre: document.getElementById('registro-nombre').value,
+        apellido: document.getElementById('registro-apellido').value,
         email: document.getElementById('registro-email').value,
         telefono: document.getElementById('registro-telefono').value,
-        password: document.getElementById('registro-password').value
+        password: document.getElementById('registro-password').value,
+        foto: fotoBase64
       };
       const r = await fetch('/api/pasajero/registro', {
         method: 'POST',
@@ -330,8 +359,15 @@
         body: JSON.stringify(datos)
       });
       const respuesta = await r.json();
-      if (respuesta.ok) mostrarPanel(respuesta.usuario.nombre);
-      else mostrarMensaje(respuesta.error, 'error');
+      if (respuesta.ok) {
+        mostrarPanel(respuesta.usuario.nombre);
+        // Mostrar mensaje de bienvenida con invitación a preferencias
+        setTimeout(() => {
+          mostrarMensaje('✨ Un último detalle. Entra en «Mis preferencias» cuando quieras y cuéntanos cómo te gusta viajar — música, temperatura, silencio, ruta... Se aplica automáticamente a todos tus viajes. Y en cada reserva tendrás un campo libre para enviarle al conductor instrucciones concretas para ese viaje. Porque no todos los días son iguales.', 'info');
+        }, 800);
+      } else {
+        mostrarMensaje(respuesta.error, 'error');
+      }
     }
 
     async function iniciarSesion() {

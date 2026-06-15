@@ -111,6 +111,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--costa); outline
 .mensaje { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; display: none; }
 .mensaje.error { display: block; background: #FBEAE7; color: var(--peligro); }
 .mensaje.ok { display: block; background: #E6F4EC; color: var(--exito); }
+.mensaje.info { display: block; background: #EAF6F7; color: #10808F; border-left: 4px solid #10808F; line-height: 1.5; }
 
 /* --- Pestañas (login / registro) --- */
 .pestanas { display: flex; gap: 8px; margin-bottom: 14px; }
