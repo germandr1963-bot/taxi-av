@@ -1116,7 +1116,7 @@ app.get('/api/admin/valoraciones', requiereAdmin, async (req, res) => {
 
 app.get('/api/admin/pasajeros', requiereAdmin, async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, nombre, email, telefono, activo, creado_en FROM pasajeros ORDER BY creado_en DESC'
+    'SELECT id, nombre, apellido, email, telefono, activo, creado_en FROM pasajeros ORDER BY creado_en DESC'
   );
   res.json({ pasajeros: rows });
 });
