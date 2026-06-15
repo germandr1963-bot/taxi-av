@@ -337,7 +337,7 @@ app.use(session({
     createTableIfMissing: true        // la crea sola si no existe
   }),
   secret: process.env.SESSION_SECRET || 'taxi-av-secreto-desarrollo',
-  resave: false,
+  resave: true,   // necesario con connect-pg-simple para mantener sesiones activas
   rolling: true,  // cada petición renueva el maxAge, la sesión no expira mientras el conductor esté activo
   saveUninitialized: false,
   cookie: {
