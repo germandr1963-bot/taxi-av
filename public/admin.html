@@ -1004,7 +1004,7 @@
       }
       cuerpo.innerHTML = pasajeros.map(p => `
         <tr>
-          <td>${escapar(p.nombre)}</td>
+          <td>${escapar(p.nombre)}${p.apellido ? ' ' + escapar(p.apellido) : ''}</td>
           <td>${escapar(p.email)}</td>
           <td>${escapar(p.telefono)}</td>
           <td>${new Date(p.creado_en).toLocaleDateString('es-ES')}</td>
