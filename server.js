@@ -444,7 +444,7 @@ app.post('/api/pasajero/login', async (req, res) => {
 
 app.get('/api/pasajero/me', requierePasajero, async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, nombre, email, telefono, creado_en FROM pasajeros WHERE id = $1',
+    'SELECT id, nombre, apellido, email, telefono, creado_en FROM pasajeros WHERE id = $1',
     [req.session.usuarioId]
   );
   res.json({ usuario: rows[0] });
