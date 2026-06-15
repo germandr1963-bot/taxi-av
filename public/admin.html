@@ -180,7 +180,7 @@
       <div class="tabla-envoltura">
         <table>
           <thead>
-            <tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Alta</th><th>Estado</th><th>Acciones</th></tr>
+            <tr><th>Nombre</th><th>Apellido</th><th>Email</th><th>Teléfono</th><th>Alta</th><th>Estado</th><th>Acciones</th></tr>
           </thead>
           <tbody id="tabla-pasajeros"></tbody>
         </table>
@@ -1004,7 +1004,8 @@
       }
       cuerpo.innerHTML = pasajeros.map(p => `
         <tr>
-          <td>${escapar(p.nombre)}${p.apellido ? ' ' + escapar(p.apellido) : ''}</td>
+          <td>${escapar(p.nombre)}</td>
+          <td>${escapar(p.apellido || '')}</td>
           <td>${escapar(p.email)}</td>
           <td>${escapar(p.telefono)}</td>
           <td>${new Date(p.creado_en).toLocaleDateString('es-ES')}</td>
