@@ -268,6 +268,28 @@ async function inicializarBaseDeDatos() {
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS categoria_id INTEGER REFERENCES categorias_vehiculos(id);`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS extras JSONB DEFAULT '[]';`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS instrucciones_conductor TEXT;`);
+
+  // Mejoras en tabla pasajeros: apellido, foto, verificación email y teléfono
+  await pool.query(`ALTER TABLE pasajeros ADD COLUMN IF NOT EXISTS apellido TEXT;`);
+  await pool.query(`ALTER TABLE pasajeros ADD COLUMN IF NOT EXISTS foto TEXT;`);
+  await pool.query(`ALTER TABLE pasajeros ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN DEFAULT FALSE;`);
+  await pool.query(`ALTER TABLE pasajeros ADD COLUMN IF NOT EXISTS telefono_verificado BOOLEAN DEFAULT FALSE;`);
+
+  // Preferencias del pasajero (se configuran en el perfil, se aplican a todos los viajes)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS preferencias_pasajero (
+      pasajero_id INTEGER PRIMARY KEY REFERENCES pasajeros(id) ON DELETE CASCADE,
+      temperatura TEXT DEFAULT 'sin_preferencia',
+      musica TEXT DEFAULT 'sin_preferencia',
+      conversacion TEXT DEFAULT 'sin_preferencia',
+      conduccion TEXT DEFAULT 'sin_preferencia',
+      mareo BOOLEAN DEFAULT FALSE,
+      ruta TEXT DEFAULT 'sin_preferencia',
+      ayuda_equipaje BOOLEAN DEFAULT FALSE,
+      tiempo_acomodarse BOOLEAN DEFAULT FALSE,
+      actualizado_en TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS pedido_para_nombre TEXT;`);
   await pool.query(`ALTER TABLE viajes ADD COLUMN IF NOT EXISTS pedido_para_telefono TEXT;`);
 
@@ -371,15 +393,20 @@ function emailValido(email) {
 // ------------------------------------------------------------
 app.post('/api/pasajero/registro', async (req, res) => {
   try {
-    const { nombre, email, telefono, password } = req.body;
-    if (!nombre || !emailValido(email) || !telefono || !password || password.length < 6) {
+    const { nombre, apellido, email, telefono, password, foto } = req.body;
+    if (!nombre || !apellido || !emailValido(email) || !telefono || !password || password.length < 6) {
       return res.status(400).json({ error: 'Revisa los datos: todos los campos son obligatorios y la contraseña debe tener al menos 6 caracteres.' });
     }
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
-      `INSERT INTO pasajeros (nombre, email, telefono, password_hash)
-       VALUES ($1, $2, $3, $4) RETURNING id, nombre, email`,
-      [nombre.trim(), email.toLowerCase().trim(), telefono.trim(), hash]
+      `INSERT INTO pasajeros (nombre, apellido, email, telefono, password_hash, foto, email_verificado, telefono_verificado)
+       VALUES ($1, $2, $3, $4, $5, $6, FALSE, FALSE) RETURNING id, nombre, apellido, email`,
+      [nombre.trim(), apellido.trim(), email.toLowerCase().trim(), telefono.trim(), hash, foto || null]
+    );
+    // Crear preferencias por defecto para el nuevo pasajero
+    await pool.query(
+      `INSERT INTO preferencias_pasajero (pasajero_id) VALUES ($1) ON CONFLICT DO NOTHING`,
+      [rows[0].id]
     );
     req.session.usuarioId = rows[0].id;
     req.session.rol = 'pasajero';
