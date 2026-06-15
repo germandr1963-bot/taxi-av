@@ -10,6 +10,7 @@
 
 const express = require('express');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const path = require('path');
@@ -330,6 +331,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('trust proxy', 1); // necesario en Render para cookies seguras
 
 app.use(session({
+  store: new pgSession({
+    pool,                             // reutiliza el pool de PostgreSQL ya creado
+    tableName: 'sesiones',            // tabla que se crea automáticamente en Neon
+    createTableIfMissing: true        // la crea sola si no existe
+  }),
   secret: process.env.SESSION_SECRET || 'taxi-av-secreto-desarrollo',
   resave: false,
   rolling: true,  // cada petición renueva el maxAge, la sesión no expira mientras el conductor esté activo
