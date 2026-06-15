@@ -236,12 +236,8 @@
       await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
     }
 
-    async function actualizarPanel() {
-      const btn = document.querySelector('button[onclick="actualizarPanel()"]');
-      if (btn) { btn.textContent = '⏳ Actualizando…'; btn.disabled = true; }
-      await cargarCategorias();
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
-      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
+    function actualizarPanel() {
+      location.reload(true);
     }
 
     const ETIQUETAS_FOTO = {

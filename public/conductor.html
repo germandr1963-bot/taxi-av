@@ -266,11 +266,8 @@
       document.getElementById('zona-acceso').classList.remove('oculto');
     }
 
-    async function actualizarConductor() {
-      const btn = document.querySelector('button[onclick="actualizarConductor()"]');
-      if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
-      await refrescarTrabajo();
-      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
+    function actualizarConductor() {
+      location.reload(true);
     }
 
     async function refrescarTrabajo() {
