@@ -32,8 +32,12 @@
 
   <main>
     <h1 id="saludo">¡Hola!</h1>
-    <p class="sub">¿Qué servicio necesitas hoy?</p>
+    <p class="sub" id="sub-saludo">Elige el servicio que necesitas.</p>
+    <div id="aviso-bienvenida" style="display:none;background:#EAF6F7;color:#10808F;border-left:4px solid #10808F;padding:14px 16px;border-radius:8px;margin:16px 0;font-size:0.93rem;line-height:1.6"></div>
     <div class="banners" id="banners">Cargando servicios…</div>
+    <div id="zona-sesion" style="display:none;margin-top:20px;text-align:center">
+      <button class="secundario" onclick="cerrarSesion()" style="font-size:0.9rem;padding:8px 20px">Cerrar sesión</button>
+    </div>
   </main>
 
   <footer class="pie">
@@ -44,6 +48,18 @@
   </footer>
 
   <script>
+    function saludo() {
+      const h = new Date().getHours();
+      if (h >= 6 && h < 14) return '¡Buenos días';
+      if (h >= 14 && h < 21) return '¡Buenas tardes';
+      return '¡Buenas noches';
+    }
+
+    async function cerrarSesion() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
+
     function abrirServicio(nombre) {
       if (nombre === 'Alquiler de Taxi') {
         window.location.href = 'pasajero.html';
@@ -53,12 +69,28 @@
     }
 
     (async function () {
-      // Saludo con nombre si hay sesión de pasajero
       try {
         const sesion = await (await fetch('/api/sesion')).json();
         if (sesion.rol === 'pasajero') {
           const yo = await (await fetch('/api/pasajero/me')).json();
-          document.getElementById('saludo').textContent = '¡Hola, ' + yo.usuario.nombre + '!';
+          const u = yo.usuario;
+          const nombreCompleto = u.nombre + (u.apellido ? ' ' + u.apellido : '');
+          // Saludo con hora
+          document.getElementById('saludo').textContent = saludo() + ', ' + nombreCompleto + '!';
+          document.getElementById('sub-saludo').textContent = '¿Qué servicio necesitas hoy?';
+          // Mostrar botón cerrar sesión
+          document.getElementById('zona-sesion').style.display = 'block';
+          // Mensaje de bienvenida única tras el alta (solo esa sesión)
+          if (sessionStorage.getItem('taxi_bienvenida_nueva')) {
+            sessionStorage.removeItem('taxi_bienvenida_nueva');
+            const aviso = document.getElementById('aviso-bienvenida');
+            aviso.innerHTML = '<strong>¡Bienvenido a Taxi Guanche, ' + nombreCompleto + '!</strong><br>Estamos aquí para hacerte la vida más fácil. Explora nuestros servicios y dinos en qué podemos ayudarte.';
+            aviso.style.display = 'block';
+          }
+        } else {
+          // Sin sesión — saludo con hora genérico
+          document.getElementById('saludo').textContent = saludo() + '!';
+          document.getElementById('sub-saludo').textContent = 'Elige el servicio que necesitas.';
         }
       } catch (e) {}
 

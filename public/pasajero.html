@@ -140,6 +140,8 @@
     <!-- ===== Panel del pasajero (tras iniciar sesión) ===== -->
     <section id="zona-panel" class="oculto">
       <h1 id="saludo">Hola</h1>
+      <p id="sub-saludo-taxi" style="margin:2px 0 10px;color:#5a6c79;font-size:0.97rem"></p>
+      <div id="aviso-bienvenida-taxi" style="display:none;background:#EAF6F7;color:#10808F;border-left:4px solid #10808F;padding:14px 16px;border-radius:8px;margin:10px 0;font-size:0.93rem;line-height:1.6"></div>
 
       <!-- ÚNICO texto de instrucciones de toda la pantalla (se va actualizando) -->
       <div id="instruccion-principal">📍 Indica tu dirección de <strong>RECOGIDA</strong>: escríbela y pulsa Buscar, usa tu ubicación, o toca el mapa.</div>
@@ -313,11 +315,28 @@
       window.location.href = '/';
     }
 
-    function mostrarPanelDirecto(nombre) {
+    function saludoHora() {
+      const h = new Date().getHours();
+      if (h >= 6 && h < 14) return '¡Buenos días';
+      if (h >= 14 && h < 21) return '¡Buenas tardes';
+      return '¡Buenas noches';
+    }
+
+    function mostrarPanelDirecto(usuario) {
       // Sesión ya activa al llegar desde el portal → mostrar el mapa directamente
       document.getElementById('zona-acceso').classList.add('oculto');
       document.getElementById('zona-panel').classList.remove('oculto');
-      document.getElementById('saludo').textContent = 'Hola, ' + nombre;
+      const nombreCompleto = usuario.nombre + (usuario.apellido ? ' ' + usuario.apellido : '');
+      // Saludo con hora
+      document.getElementById('saludo').textContent = saludoHora() + ', ' + nombreCompleto + '!';
+      document.getElementById('sub-saludo-taxi').textContent = '¿A dónde te llevamos hoy?';
+      // Mensaje bienvenida única de taxi (solo primera vez tras registro, esa sesión)
+      if (sessionStorage.getItem('taxi_bienvenida_taxi')) {
+        sessionStorage.removeItem('taxi_bienvenida_taxi');
+        const aviso = document.getElementById('aviso-bienvenida-taxi');
+        aviso.innerHTML = '<strong>¡Bienvenido a Taxi Guanche, ' + nombreCompleto + '!</strong><br>Puedes indicarle a tu conductor cómo prefieres el viaje — música, temperatura, silencio, ruta... Configúralo en <strong>Mis preferencias</strong>. Y en cada reserva tienes un campo libre para instrucciones concretas para ese viaje.';
+        aviso.style.display = 'block';
+      }
       comprobarViajeActivo();
     }
 
@@ -360,6 +379,8 @@
       });
       const respuesta = await r.json();
       if (respuesta.ok) {
+        sessionStorage.setItem('taxi_bienvenida_nueva', '1');
+        sessionStorage.setItem('taxi_bienvenida_taxi', '1');
         mostrarPanel(respuesta.usuario.nombre);
         // Mostrar mensaje de bienvenida con invitación a preferencias
         setTimeout(() => {
@@ -395,7 +416,7 @@
       const s = await r.json();
       if (s.rol === 'pasajero') {
         const yo = await (await fetch('/api/pasajero/me')).json();
-        mostrarPanelDirecto(yo.usuario.nombre);
+        mostrarPanelDirecto(yo.usuario);
       }
     })();
 
