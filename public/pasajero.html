@@ -118,16 +118,16 @@
 
         <!-- Registro -->
         <div id="formulario-registro" class="oculto">
-          <label for="registro-nombre">Nombre</label>
+          <label for="registro-nombre">Nombre <span style="color:#888;font-weight:400">(obligatorio)</span></label>
           <input id="registro-nombre" type="text" autocomplete="given-name" placeholder="Tu nombre" required>
-          <label for="registro-apellido">Primer apellido</label>
+          <label for="registro-apellido">Primer apellido <span style="color:#888;font-weight:400">(obligatorio)</span></label>
           <input id="registro-apellido" type="text" autocomplete="family-name" placeholder="Tu primer apellido" required>
-          <label for="registro-email">Email</label>
-          <input id="registro-email" type="email" autocomplete="email" placeholder="tu@email.com">
-          <label for="registro-telefono">Teléfono</label>
-          <input id="registro-telefono" type="tel" autocomplete="tel" placeholder="+34 600 000 000">
-          <label for="registro-password">Contraseña (mínimo 6 caracteres)</label>
-          <input id="registro-password" type="password" autocomplete="new-password">
+          <label for="registro-email">Email <span style="color:#888;font-weight:400">(obligatorio)</span></label>
+          <input id="registro-email" type="email" autocomplete="email" placeholder="tu@email.com" required>
+          <label for="registro-telefono">Teléfono <span style="color:#888;font-weight:400">(obligatorio)</span></label>
+          <input id="registro-telefono" type="tel" autocomplete="tel" placeholder="+34 600 000 000" required>
+          <label for="registro-password">Contraseña <span style="color:#888;font-weight:400">(obligatorio, mínimo 6 caracteres)</span></label>
+          <input id="registro-password" type="password" autocomplete="new-password" required>
           <label for="registro-foto" style="margin-top:8px">Foto de perfil <span style="color:#888;font-weight:400">(opcional)</span></label>
           <input id="registro-foto" type="file" accept="image/*" style="font-size:0.9rem;padding:4px 0">
           <button onclick="registrarse()">Crear cuenta</button>
