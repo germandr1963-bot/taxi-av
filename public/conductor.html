@@ -269,12 +269,7 @@
     async function actualizarConductor() {
       const btn = document.querySelector('button[onclick="actualizarConductor()"]');
       if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
-      try {
-        await Promise.race([
-          refrescarTrabajoReal(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
-        ]);
-      } catch(e) { /* timeout o error de red: el sondeo de 7s lo reintentará */ }
+      await refrescarTrabajo();
       if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
     }
 
