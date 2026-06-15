@@ -243,8 +243,16 @@
       await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
     }
 
-    function actualizarPanel() {
-      location.reload(true);
+    async function actualizarPanel() {
+      const btn = document.querySelector('button[onclick="actualizarPanel()"]');
+      if (btn) { btn.textContent = '⏳ Actualizando…'; btn.disabled = true; }
+      try {
+        await Promise.race([
+          Promise.all([cargarCategorias(), cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+        ]);
+      } catch(e) { /* timeout o error de red: el panel queda como está */ }
+      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
     }
 
     const ETIQUETAS_FOTO = {
