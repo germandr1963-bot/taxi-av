@@ -346,7 +346,8 @@
       }
       if (v.pedido_para_nombre) {
         html += '<br><strong>Pedido para:</strong> ' + v.pedido_para_nombre +
-          (v.pedido_para_telefono ? ' · ' + v.pedido_para_telefono : '');
+          (v.pedido_para_telefono ? ' · ' + v.pedido_para_telefono : '') +
+          (v.pedido_para_mensaje ? '<br><strong>Mensaje:</strong> ' + v.pedido_para_mensaje : '');
       }
       return html;
     }

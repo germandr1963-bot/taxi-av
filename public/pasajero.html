@@ -219,6 +219,8 @@
               <input id="otra-persona-nombre" type="text" maxlength="120" placeholder="Nombre">
               <label for="otra-persona-telefono">Teléfono de contacto</label>
               <input id="otra-persona-telefono" type="tel" maxlength="40" placeholder="Teléfono">
+              <label for="otra-persona-mensaje">Mensaje al conductor (opcional)</label>
+              <input id="otra-persona-mensaje" type="text" maxlength="300" placeholder="Ej.: Es mi madre, por favor ayúdela con el equipaje">
             </div>
           </div>
 
@@ -622,6 +624,7 @@
       document.getElementById('datos-otra-persona').classList.add('oculto');
       document.getElementById('otra-persona-nombre').value = '';
       document.getElementById('otra-persona-telefono').value = '';
+      document.getElementById('otra-persona-mensaje').value = '';
       document.getElementById('boton-confirmar').classList.add('oculto');
       document.getElementById('boton-pedir').classList.add('oculto');
       document.getElementById('boton-reiniciar-grande').classList.add('oculto');
@@ -939,7 +942,8 @@
         extras: Array.from(extrasSeleccionados),
         instrucciones_conductor: document.getElementById('instrucciones-conductor').value,
         pedido_para_nombre: pedidoOtra ? document.getElementById('otra-persona-nombre').value : '',
-        pedido_para_telefono: pedidoOtra ? document.getElementById('otra-persona-telefono').value : ''
+        pedido_para_telefono: pedidoOtra ? document.getElementById('otra-persona-telefono').value : '',
+        pedido_para_mensaje: pedidoOtra ? document.getElementById('otra-persona-mensaje').value : ''
       };
       const r = await fetch('/api/pasajero/viaje', {
         method: 'POST',
