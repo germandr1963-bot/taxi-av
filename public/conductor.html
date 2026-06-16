@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Conductor · Taxi-AV</title>
   <link rel="stylesheet" href="estilos.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    #mapa-viaje-conductor { width: 100%; height: 260px; border-radius: 12px; margin: 12px 0; }
+    .icono-taxi-conductor { font-size: 22px; text-align: center; line-height: 22px; }
+  </style>
 </head>
 <body>
   <header class="app">
@@ -152,6 +157,7 @@
       <div class="tarjeta oculto" id="tarjeta-viaje-conductor">
         <h2 style="margin-top:0">Tu viaje en marcha</h2>
         <div id="detalle-viaje-conductor" style="font-size:0.95rem;line-height:1.7"></div>
+        <div id="mapa-viaje-conductor"></div>
         <button id="boton-iniciar" onclick="iniciarViaje()">🚖 He recogido al pasajero (iniciar viaje)</button>
         <button id="boton-finalizar" class="oculto" onclick="finalizarViaje()">🏁 Viaje terminado</button>
       </div>
@@ -160,6 +166,7 @@
     </section>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script>
     function mostrarMensaje(texto, tipo) {
       const m = document.getElementById('mensaje');
@@ -321,9 +328,11 @@
           extrasHtml(viaje);
         document.getElementById('boton-iniciar').classList.toggle('oculto', viaje.estado !== 'asignado');
         document.getElementById('boton-finalizar').classList.toggle('oculto', viaje.estado !== 'en_curso');
+        asegurarMapaConductor(viaje);
       } else {
         document.getElementById('tarjeta-viaje-conductor').classList.add('oculto');
         document.getElementById('tarjeta-trabajo').classList.remove('oculto');
+        if (mapaConductor) { mapaConductor.remove(); mapaConductor = null; marcaYoConductor = null; idViajeMapa = null; }
         if (disponible) cargarSolicitudes();
       }
     }
@@ -377,20 +386,66 @@
     // POSICIÓN GPS — el taxi se ve en vivo en el mapa del pasajero.
     // Solo se envía cuando el conductor está disponible o llevando un viaje.
     // ============================================================
+    let miPosicionActual = null; // { lat, lng } - se reutiliza para el mapa del viaje
+
     function enviarPosicion() {
       if (!disponible && !viajeActivo) return; // fuera de servicio: no se rastrea
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
         function (posicion) {
+          miPosicionActual = { lat: posicion.coords.latitude, lng: posicion.coords.longitude };
           fetch('/api/conductor/posicion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lat: posicion.coords.latitude, lng: posicion.coords.longitude })
           });
+          if (viajeActivo) actualizarMapaConductor(viajeActivo);
         },
         function () { /* sin permiso o sin señal: se reintenta en el siguiente ciclo */ },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 6000 }
       );
+    }
+
+    let mapaConductor = null;
+    let marcaRecogidaConductor = null;
+    let marcaDestinoConductor = null;
+    let marcaYoConductor = null;
+    let idViajeMapa = null;
+
+    function asegurarMapaConductor(viaje) {
+      // Si cambia de viaje, se reconstruye el mapa desde cero
+      if (mapaConductor && idViajeMapa !== viaje.id) {
+        mapaConductor.remove();
+        mapaConductor = null;
+      }
+      idViajeMapa = viaje.id;
+
+      if (!mapaConductor) {
+        mapaConductor = L.map('mapa-viaje-conductor').setView([viaje.origen_lat, viaje.origen_lng], 13);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '&copy; OpenStreetMap'
+        }).addTo(mapaConductor);
+        marcaRecogidaConductor = L.marker([viaje.origen_lat, viaje.origen_lng]).addTo(mapaConductor).bindPopup('📍 Recogida');
+        marcaDestinoConductor = L.marker([viaje.destino_lat, viaje.destino_lng]).addTo(mapaConductor).bindPopup('🏁 Destino');
+        const puntos = [[viaje.origen_lat, viaje.origen_lng], [viaje.destino_lat, viaje.destino_lng]];
+        if (miPosicionActual) puntos.push([miPosicionActual.lat, miPosicionActual.lng]);
+        mapaConductor.fitBounds(puntos, { padding: [40, 40], maxZoom: 16 });
+        setTimeout(() => mapaConductor.invalidateSize(), 200);
+      }
+      actualizarMapaConductor(viaje);
+    }
+
+    function actualizarMapaConductor(viaje) {
+      if (!mapaConductor || !miPosicionActual) return;
+      const pos = [miPosicionActual.lat, miPosicionActual.lng];
+      if (!marcaYoConductor) {
+        marcaYoConductor = L.marker(pos, {
+          icon: L.divIcon({ html: '🚖', className: 'icono-taxi-conductor', iconSize: [22, 22] }),
+          zIndexOffset: 1000
+        }).addTo(mapaConductor).bindPopup('Tú');
+      } else {
+        marcaYoConductor.setLatLng(pos);
+      }
     }
 
     // ============================================================

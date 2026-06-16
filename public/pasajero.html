@@ -127,7 +127,10 @@
           <label for="registro-telefono">Teléfono <span style="color:#888;font-weight:400">(obligatorio)</span></label>
           <input id="registro-telefono" type="tel" autocomplete="tel" placeholder="+34 600 000 000" required>
           <label for="registro-password">Contraseña <span style="color:#888;font-weight:400">(obligatorio, mínimo 6 caracteres)</span></label>
-          <input id="registro-password" type="password" autocomplete="new-password" required>
+          <div style="position:relative">
+            <input id="registro-password" type="password" autocomplete="new-password" required style="padding-right:44px;width:100%;box-sizing:border-box">
+            <button type="button" onclick="togglePassword('registro-password', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px 8px">👁</button>
+          </div>
           <label for="registro-foto" style="margin-top:8px">Foto de perfil <span style="color:#888;font-weight:400">(opcional)</span></label>
           <input id="registro-foto" type="file" accept="image/*" style="font-size:0.9rem;padding:4px 0">
           <button onclick="registrarse()">Crear cuenta</button>
@@ -237,6 +240,10 @@
             <h2 style="margin-top:0">Tu selección</h2>
             <div id="bolsa-extras"></div>
           </div>
+
+          <div id="precio-final-cont" class="bloque-extra oculto" style="background:#FFFBF0;border:1px solid #F5B82E">
+            <div id="precio-final-detalle"></div>
+          </div>
         </div>
 
         <button id="boton-reiniciar-grande" class="secundario oculto boton-ancho" onclick="reiniciarSeleccion()">🔄 Empezar de nuevo el viaje</button>
@@ -280,7 +287,32 @@
         <button class="peligro" onclick="cancelarViaje()" id="boton-cancelar">Cancelar viaje</button>
       </div>
 
-      <button class="secundario" onclick="cerrarSesion()">Cerrar sesión</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+        <button class="secundario" onclick="abrirCambiarPassword()" style="flex:1;min-width:160px">🔑 Cambiar contraseña</button>
+        <button class="secundario" onclick="cerrarSesion()" style="flex:1;min-width:160px">Cerrar sesión</button>
+      </div>
+
+      <!-- Modal sencillo para cambiar contraseña -->
+      <div id="modal-password" class="oculto" style="position:fixed;inset:0;background:rgba(10,42,67,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px">
+        <div style="background:#fff;border-radius:12px;padding:24px;max-width:380px;width:100%">
+          <h2 style="margin-top:0">Cambiar contraseña</h2>
+          <label for="pwd-actual">Contraseña actual</label>
+          <div style="position:relative">
+            <input id="pwd-actual" type="password" autocomplete="current-password" style="padding-right:44px;width:100%;box-sizing:border-box">
+            <button type="button" onclick="togglePassword('pwd-actual', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px 8px">👁</button>
+          </div>
+          <label for="pwd-nueva" style="margin-top:10px">Nueva contraseña (mínimo 6 caracteres)</label>
+          <div style="position:relative">
+            <input id="pwd-nueva" type="password" autocomplete="new-password" style="padding-right:44px;width:100%;box-sizing:border-box">
+            <button type="button" onclick="togglePassword('pwd-nueva', this)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px 8px">👁</button>
+          </div>
+          <div id="mensaje-password" class="mensaje"></div>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="secundario" onclick="cerrarCambiarPassword()" style="flex:1">Cancelar</button>
+            <button onclick="guardarNuevaPassword()" style="flex:1">Guardar</button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -300,6 +332,54 @@
       const m = document.getElementById('mensaje');
       m.textContent = texto;
       m.className = 'mensaje ' + tipo;
+    }
+
+    function togglePassword(id, boton) {
+      const campo = document.getElementById(id);
+      if (campo.type === 'password') {
+        campo.type = 'text';
+        boton.textContent = '🙈';
+      } else {
+        campo.type = 'password';
+        boton.textContent = '👁';
+      }
+    }
+
+    function abrirCambiarPassword() {
+      document.getElementById('pwd-actual').value = '';
+      document.getElementById('pwd-nueva').value = '';
+      document.getElementById('mensaje-password').textContent = '';
+      document.getElementById('mensaje-password').className = 'mensaje';
+      document.getElementById('modal-password').classList.remove('oculto');
+    }
+
+    function cerrarCambiarPassword() {
+      document.getElementById('modal-password').classList.add('oculto');
+    }
+
+    async function guardarNuevaPassword() {
+      const actual = document.getElementById('pwd-actual').value;
+      const nueva = document.getElementById('pwd-nueva').value;
+      const msg = document.getElementById('mensaje-password');
+      if (!actual || !nueva) {
+        msg.textContent = 'Rellena ambos campos.';
+        msg.className = 'mensaje error';
+        return;
+      }
+      const r = await fetch('/api/pasajero/cambiar-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actual, nueva })
+      });
+      const respuesta = await r.json();
+      if (respuesta.ok) {
+        msg.textContent = '✅ Contraseña actualizada correctamente.';
+        msg.className = 'mensaje ok';
+        setTimeout(cerrarCambiarPassword, 1500);
+      } else {
+        msg.textContent = respuesta.error;
+        msg.className = 'mensaje error';
+      }
     }
 
     function mostrarPestana(cual) {
@@ -562,11 +642,13 @@
         if (!origenConfirmado) {
           if (marcadorOrigen) mapa.removeLayer(marcadorOrigen);
           marcadorOrigen = null;
-          direccionOrigen = 'Punto seleccionado en el mapa';
+          // El ajuste del punto en el mapa es solo de precisión visual.
+          // Si el cliente ya escribió/buscó una dirección, esa dirección se conserva.
+          if (!direccionOrigen) direccionOrigen = 'Punto seleccionado en el mapa';
         } else if (!destinoConfirmado) {
           if (marcadorDestino) mapa.removeLayer(marcadorDestino);
           marcadorDestino = null;
-          direccionDestino = 'Punto seleccionado en el mapa';
+          if (!direccionDestino) direccionDestino = 'Punto seleccionado en el mapa';
         }
       });
 
@@ -736,15 +818,27 @@
       if (!rutaActual || !categoriaSeleccionada) return;
       const km = rutaActual.km;
       const min = rutaActual.min;
-      const totalExtras = totalExtrasSeleccionados();
-      const precio = precioEstimado(km, categoriaSeleccionada) + totalExtras;
+      const precio = precioEstimado(km, categoriaSeleccionada);
       let html = '🛣️ Recorrido: <strong>' + km.toFixed(1) + ' km</strong>';
       if (min !== null) html += '<br>⏱️ Tiempo estimado: <strong>' + Math.round(min) + ' min</strong>';
-      if (totalExtras > 0) html += '<br>➕ Extras: <strong>+' + totalExtras.toFixed(2) + ' €</strong>';
-      html += '<br>💶 Precio total: <strong>~' + precio.toFixed(2) + ' €</strong>';
-      html += '<br><span class="nota-precio">Precio orientativo según las condiciones actuales; el importe final puede variar.</span>';
+      html += '<br>💶 Precio: <strong>~' + precio.toFixed(2) + ' €</strong>';
+      html += '<br><span class="nota-precio">Precio orientativo, el importe final puede variar después de la sección de extras.</span>';
       document.getElementById('resumen-viaje').innerHTML = html;
       // El cuadro "Información del viaje" se muestra al elegir el vehículo
+      pintarPrecioFinal();
+    }
+
+    function pintarPrecioFinal() {
+      const cont = document.getElementById('precio-final-cont');
+      if (!rutaActual || !categoriaSeleccionada) { cont.classList.add('oculto'); return; }
+      const totalExtras = totalExtrasSeleccionados();
+      const precioBase = precioEstimado(rutaActual.km, categoriaSeleccionada);
+      const precioFinal = precioBase + totalExtras;
+      let html = '💶 Precio final a pagar: <strong>~' + precioFinal.toFixed(2) + ' €</strong>';
+      if (totalExtras > 0) html += '<br><span class="nota-precio">Incluye ' + totalExtras.toFixed(2) + ' € de extras.</span>';
+      else html += '<br><span class="nota-precio">Sin extras añadidos.</span>';
+      document.getElementById('precio-final-detalle').innerHTML = html;
+      cont.classList.remove('oculto');
     }
 
     function actualizarEstado() {
