@@ -450,6 +450,26 @@ app.get('/api/pasajero/me', requierePasajero, async (req, res) => {
   res.json({ usuario: rows[0] });
 });
 
+// Cambiar contraseña del pasajero (ya logueado)
+app.post('/api/pasajero/cambiar-password', requierePasajero, async (req, res) => {
+  try {
+    const { actual, nueva } = req.body;
+    if (!actual || !nueva || nueva.length < 6) {
+      return res.status(400).json({ error: 'Revisa los datos: la nueva contraseña debe tener al menos 6 caracteres.' });
+    }
+    const { rows } = await pool.query('SELECT password_hash FROM pasajeros WHERE id = $1', [req.session.usuarioId]);
+    if (!rows.length) return res.status(400).json({ error: 'Usuario no encontrado.' });
+    const coincide = await bcrypt.compare(actual, rows[0].password_hash);
+    if (!coincide) return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
+    const hash = await bcrypt.hash(nueva, 10);
+    await pool.query('UPDATE pasajeros SET password_hash = $1 WHERE id = $2', [hash, req.session.usuarioId]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor al cambiar la contraseña.' });
+  }
+});
+
 // ------------------------------------------------------------
 // 4. RUTAS DE CONDUCTORES
 // ------------------------------------------------------------
