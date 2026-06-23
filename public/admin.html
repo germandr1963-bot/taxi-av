@@ -1,1039 +1,2794 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Administración · Taxi-AV</title>
-  <link rel="stylesheet" href="estilos.css">
-  <style>
-    /* El panel de administración vive en PC: ancho completo y tablas sin recortes */
-    main { max-width: 1340px; }
-    .tabla-envoltura table { font-size: 0.84rem; }
-    .tabla-envoltura th, .tabla-envoltura td { white-space: normal; }
-    .estrellas-ambar { color: var(--luminoso); letter-spacing: 1px; }
-    .estrellas-ambar .vacia { color: #C9D4DC; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Traslados GC</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500&family=Public+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css">
+<style>
+.login-pantalla {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-caja {
+  width: 320px;
+}
+.login-caja .titular {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 18px;
+}
+.login-caja .campo {
+  margin-bottom: 12px;
+}
+.grid-fondos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.tarjeta-fondo {
+  border: 1px solid var(--gris-borde);
+  border-radius: 12px;
+  padding: 8px;
+}
+.tarjeta-fondo .miniatura {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--gris-fondo);
+  display: block;
+}
+.tarjeta-fondo .fila-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.tarjeta-fondo .nombre-fondo {
+  font-size: 12px;
+  color: var(--texto-muted);
+}
+.badge-activo {
+  background: var(--verde-ok-fondo);
+  color: var(--verde-ok);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.eliminar-fondo {
+  color: var(--rojo-error);
+  background: none;
+  border: none;
+  font-size: 11px;
+}
+.fila-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.fila-form > div {
+  min-width: 140px;
+}
+table.tabla-precios {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.tabla-precios th, table.tabla-precios td {
+  border: 1px solid var(--gris-borde);
+  padding: 6px 8px;
+  text-align: center;
+}
+table.tabla-precios th:first-child, table.tabla-precios td:first-child {
+  text-align: left;
+}
+table.tabla-precios input {
+  width: 70px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid var(--piedra-borde);
+  text-align: center;
+}
+.tab-idioma {
+  padding: 6px 14px;
+  border: 1px solid var(--gris-borde);
+  border-radius: 6px;
+  background: var(--gris-fondo);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--texto-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.tab-idioma.activo {
+  background: var(--charcoal);
+  color: white;
+  border-color: var(--charcoal);
+}
+.tab-idioma-rojo {
+  background: #fdecea !important;
+  color: var(--rojo-error) !important;
+  border-color: var(--rojo-error) !important;
+  font-weight: 700;
+}
+.tab-idioma-rojo.activo {
+  background: var(--rojo-error) !important;
+  color: white !important;
+}
+.estado-seo-ok    { color: #2e7d32; font-weight: 600; font-size: 13px; }
+.estado-seo-draft { color: #b8860b; font-size: 13px; }
+.estado-seo-vacio { color: #ccc; font-size: 12px; }
+</style>
 </head>
 <body>
-  <header class="app">
-    <div style="display:flex;align-items:center;gap:10px"><img src="logo-simbolo.png" alt="Taxi - Guanche" class="logo-simbolo"><span style="font-weight:700">ADMINISTRACIÓN</span></div>
-    <a href="javascript:void(0)" onclick="volverInicio()">Inicio</a>
-  </header>
 
-  <main>
-    <!-- ===== Acceso ===== -->
-    <section id="zona-acceso">
-      <h1>Panel de administración</h1>
-      <p class="sub">Acceso restringido.</p>
-      <div class="tarjeta" style="max-width:420px">
-        <label for="login-email">Email</label>
-        <input id="login-email" type="email" autocomplete="email">
-        <label for="login-password">Contraseña</label>
-        <input id="login-password" type="password" autocomplete="current-password">
-        <button onclick="iniciarSesion()">Entrar</button>
-        <div id="mensaje" class="mensaje"></div>
+<div id="pantalla-login" class="login-pantalla">
+  <div class="login-caja tarjeta">
+    <span class="titular">Traslados · GC</span>
+    <input type="text" id="login-usuario" class="campo" placeholder="Usuario">
+    <input type="password" id="login-password" class="campo" placeholder="Contraseña">
+    <button id="login-boton" class="boton-primario" style="width:100%;">Entrar</button>
+    <div id="login-error" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="pantalla-admin" class="admin-shell oculto">
+  <div class="admin-menu">
+    <span class="marca">Traslados · GC</span>
+    <button class="item-menu activo" data-seccion="fondos">Fondos de portada</button>
+    <button class="item-menu" data-seccion="categorias">Categorías</button>
+    <button class="item-menu" data-seccion="conductores">Conductores</button>
+    <button class="item-menu" data-seccion="destinos">Destinos</button>
+    <button class="item-menu" data-seccion="precios">Rutas y precios</button>
+    <button class="item-menu" data-seccion="seo">SEO</button>
+    <button class="item-menu" data-seccion="idiomas">Idiomas</button>
+    <button class="item-menu" data-seccion="calculador">Calculador</button>
+    <button class="item-menu" data-seccion="extras">Extras</button>
+    <button id="boton-salir" style="margin-top:30px;opacity:0.5;">Cerrar sesión</button>
+  </div>
+
+  <div class="admin-contenido">
+
+    <div id="seccion-fondos">
+      <h1>Fondos de portada</h1>
+      <p class="subtitulo">Tamaño recomendado 1920 × 1080 px · jpg, png o webp · máx. 1 MB. Solo uno puede estar activo a la vez.</p>
+      <div id="grid-fondos" class="grid-fondos"></div>
+      <div id="form-subir-fondo" class="tarjeta" style="max-width:420px;">
+        <p style="font-size:13px;margin-bottom:10px;" id="espacios-restantes"></p>
+        <div style="margin-bottom:10px;">
+          <label class="etiqueta">Nombre del fondo</label>
+          <input type="text" id="nombre-fondo" class="campo" placeholder="Ej. Atardecer en Maspalomas">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label class="etiqueta">Imagen</label>
+          <input type="file" id="archivo-fondo" accept="image/jpeg,image/png,image/webp">
+        </div>
+        <button id="boton-subir-fondo" class="boton-primario">Subir fondo</button>
+        <div id="mensaje-fondo" style="margin-top:10px;"></div>
       </div>
-    </section>
+    </div>
 
-    <!-- ===== Panel ===== -->
-    <section id="zona-panel" class="oculto">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <h1 style="margin:0">Panel de administración</h1>
-        <button class="secundario" style="margin:0;padding:8px 18px" onclick="actualizarPanel()">🔄 Actualizar</button>
+    <div id="seccion-categorias" class="oculto">
+      <h1>Categorías de vehículos</h1>
+      <p class="subtitulo">Activa = existe en el sistema (se ofrece a los choferes en el alta). Disponible = se ofrece HOY al cliente en el selector de vehículo.</p>
+      <table class="tabla-admin">
+        <thead>
+          <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Bajada (diurna / nocturna)</th><th>Foto</th><th>Activa</th><th>Disponible</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="tabla-categorias"></tbody>
+      </table>
+      <button id="boton-nueva-categoria" class="boton-primario" style="margin-top:14px;">➕ Crear categoría nueva</button>
+
+      <div class="tarjeta oculto" id="editor-categoria" style="margin-top:16px;max-width:520px;"></div>
+    </div>
+
+    <div id="seccion-conductores" class="oculto">
+      <h1>Conductores</h1>
+      <p class="subtitulo">Alta y gestión de la flota de conductores. La categoría se elige entre las activas; la marca y el modelo se guardan en un catálogo propio que crece según se van añadiendo conductores.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="boton-costa" onclick="contactoGlobalConductores(true)">💬 Permitir contacto a TODOS</button>
+        <button class="boton-peligro" onclick="contactoGlobalConductores(false)">🔇 Quitar contacto a TODOS</button>
       </div>
+      <table class="tabla-admin">
+        <thead>
+          <tr><th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Categoría</th><th>Isla</th><th>Foto</th><th style="min-width:150px">💬 Botón contacto</th><th style="min-width:130px">Tipo</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody id="tabla-conductores"></tbody>
+      </table>
+      <button id="boton-nuevo-conductor" class="boton-primario" style="margin-top:14px;">➕ Dar de alta un conductor</button>
 
-      <h2>Resumen</h2>
-      <div class="cifras" id="cifras"></div>
+      <div class="tarjeta oculto" id="editor-conductor" style="margin-top:16px;max-width:640px;"></div>
+      <div class="tarjeta oculto" id="ficha-conductor" style="margin-top:16px;"></div>
+    </div>
 
-      <h2>Ajustes de cancelación</h2>
-      <div class="tarjeta" style="max-width:520px">
-        <label style="display:flex;align-items:center;gap:8px;margin-top:0">
-          <input type="checkbox" id="ajuste-activa" style="width:auto"> Cobrar por cancelación tardía (activable/desactivable)
+    <div id="seccion-destinos" class="oculto">
+      <h1>Destinos</h1>
+      <p class="subtitulo">Lista oficial de puntos de origen y destino. Solo los destinos activos estarán disponibles al crear rutas.</p>
+
+      <div style="margin-bottom:1.5rem;">
+        <input type="text" id="nuevo-destino-nombre" placeholder="Nombre del destino" style="padding:0.5rem 0.8rem;border-radius:6px;border:1px solid #555;background:#2a2a2a;color:#f0ebe3;width:280px;margin-right:0.5rem;">
+        <button class="boton-costa" onclick="crearDestino()">+ Añadir destino</button>
+      </div>
+      <div id="error-destinos" style="color:#e07b5a;margin-bottom:1rem;display:none;"></div>
+
+      <table class="tabla-admin">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-destinos"></tbody>
+      </table>
+    </div>
+
+    <div id="seccion-precios" class="oculto">
+      <h1>Rutas y precios</h1>
+      <p class="subtitulo">El precio se define por cada combinación de ruta y categoría de vehículo.</p>
+      <div class="fila-form">
+        <div>
+          <label class="etiqueta">Desde</label>
+          <select id="ruta-origen" class="campo"></select>
+        </div>
+        <div>
+          <label class="etiqueta">Hasta</label>
+          <select id="ruta-destino" class="campo"></select>
+        </div>
+        <button id="boton-add-ruta" class="boton-primario">Añadir ruta</button>
+      </div>
+      <div id="error-rutas" style="color:#e07b5a;margin-bottom:1rem;display:none;"></div>
+      <div id="tabla-precios-contenedor" style="overflow-x:auto;"></div>
+      <button id="boton-guardar-precios" class="boton-primario" style="margin-top:16px;">Guardar precios</button>
+      <div id="mensaje-precios" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="seccion-seo" class="oculto">
+      <h1>SEO — Páginas por ruta</h1>
+      <p class="subtitulo">Cada ruta tiene su propia página optimizada para Google. Rellena el título y la descripción en cada idioma y actívala cuando esté lista. Las páginas desactivadas no aparecen en internet.</p>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <a id="boton-exportar-seo" href="/admin/seo/exportar" class="boton-primario" style="text-decoration:none;">⬇️ Exportar Excel para traducir</a>
+        <label class="boton-secundario" style="cursor:pointer;margin:0;">
+          ⬆️ Importar Excel traducido
+          <input type="file" id="archivo-importar-seo" accept=".xlsx" style="display:none;" onchange="importarSEO()">
         </label>
-        <label for="ajuste-minutos">Minutos de espera al cliente tras la asignación (sin cargo)</label>
-        <input id="ajuste-minutos" type="number" min="0" max="60">
-        <label for="ajuste-importe">Importe del cargo (€)</label>
-        <input id="ajuste-importe" type="number" min="0" step="0.5">
-        <button onclick="guardarAjustes()">Guardar ajustes</button>
-        <div id="mensaje-ajustes" class="mensaje"></div>
+        <button type="button" class="boton-secundario" onclick="abrirEditorArchivo('sitemap.xml')">🗺️ Editar Sitemap</button>
+        <button type="button" class="boton-secundario" onclick="abrirEditorArchivo('robots.txt')">🤖 Editar robots.txt</button>
+        <button type="button" class="boton-secundario" onclick="abrirPanelSalud()">🩺 Salud SEO</button>
+        <button type="button" class="boton-secundario" onclick="abrirPanelRedirecciones()">🔀 Redirecciones</button>
+        <button type="button" class="boton-secundario" onclick="abrirPanelAjustesGlobales()">⚙️ Ajustes globales</button>
+        <button type="button" class="boton-secundario" onclick="abrirPanelActivacionMasiva()">✅ Activar/desactivar por idioma</button>
+      </div>
+      <p style="font-size:12px;color:var(--texto-muted);margin-top:-8px;margin-bottom:16px;">
+        Por defecto ambos se generan solos con los datos actuales. Si tu SEO necesita un ajuste manual, puede editarlos y guardarlos aquí.
+      </p>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;background:var(--gris-fondo);padding:10px 14px;border-radius:8px;">
+        <span style="font-size:13px;">🤖 Traducir título y descripción de las rutas con IA:</span>
+        <select id="select-idioma-ia-seo" class="campo" style="height:34px;width:auto;"></select>
+        <button class="boton-costa" onclick="traducirSEOConIA()">Traducir lo que falte</button>
       </div>
 
-      <h2>Servicios del portal</h2>
-      <p class="sub" style="margin-bottom:10px">Los banners de la pantalla de inicio. Estados: <strong>inactivo</strong> (oculto) · <strong>activo</strong> (público) · <strong>interno</strong> (solo lo ves tú, para probar).</p>
-      <div class="tabla-envoltura">
-        <table>
-          <thead><tr><th>Posición</th><th>Servicio</th><th>Estado</th></tr></thead>
-          <tbody id="tabla-servicios"></tbody>
-        </table>
+      <div id="editor-archivo-manual" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+      <div id="panel-salud-seo" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+      <div id="panel-redirecciones" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+      <div id="panel-ajustes-globales" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+      <div id="panel-activacion-masiva" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+      <div id="revision-seo-ia" class="tarjeta oculto" style="margin-bottom:20px;"></div>
+
+      <div id="mensaje-seo" style="margin-bottom:12px;"></div>
+
+      <table class="tabla-admin">
+        <thead id="thead-seo">
+          <tr>
+            <th>Ruta</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-seo-cuerpo"></tbody>
+      </table>
+
+      <div id="editor-seo" class="tarjeta oculto" style="margin-top:20px;max-width:700px;"></div>
+    </div>
+
+    <div id="seccion-idiomas" class="oculto">
+      <h1>Idiomas — Textos de la interfaz</h1>
+      <p class="subtitulo">Esto traduce los textos fijos de la propia web (botones, títulos, etiquetas) — no los datos de cada ruta, eso está en SEO. El español se gestiona desde el código; las demás traducciones, desde aquí.</p>
+
+      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+        <a href="/admin/textos/exportar" class="boton-primario" style="text-decoration:none;">⬇️ Exportar Excel para traducir</a>
+        <label class="boton-secundario" style="cursor:pointer;margin:0;">
+          ⬆️ Importar Excel traducido
+          <input type="file" id="archivo-importar-textos" accept=".xlsx" style="display:none;" onchange="importarTextosInterfaz()">
+        </label>
+        <button class="boton-secundario" onclick="abrirPanelIdiomas()">🌐 Gestionar idiomas de la web</button>
       </div>
-      <button style="margin-top:10px" onclick="document.getElementById('formulario-servicio').classList.remove('oculto');this.classList.add('oculto')">➕ Añadir servicio nuevo</button>
-      <div class="tarjeta oculto" id="formulario-servicio" style="border:2px solid var(--costa);max-width:520px;margin-top:10px">
-        <h3 style="margin-top:0">➕ Añadir servicio nuevo</h3>
-        <label for="nuevo-servicio-nombre">Nombre del servicio</label>
-        <input id="nuevo-servicio-nombre" type="text" placeholder="Nombre del servicio">
-        <label for="nuevo-servicio-posicion">Posición (1 = primero)</label>
-        <input id="nuevo-servicio-posicion" type="number" min="1" value="5">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
-          <button onclick="crearServicio()">Crear servicio</button>
-          <button class="secundario" onclick="document.getElementById('formulario-servicio').classList.add('oculto');document.querySelector('[onclick*=formulario-servicio]').classList.remove('oculto')">Cancelar</button>
+
+      <div id="panel-gestion-idiomas" class="tarjeta oculto" style="margin-bottom:18px;"></div>
+
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;background:var(--gris-fondo);padding:10px 14px;border-radius:8px;">
+        <span style="font-size:13px;">🤖 Traducir automáticamente con IA:</span>
+        <select id="select-idioma-ia" class="campo" style="height:34px;width:auto;"></select>
+        <button class="boton-costa" onclick="traducirConIA()">Traducir lo que falte</button>
+      </div>
+
+      <div id="mensaje-textos" style="margin-bottom:12px;"></div>
+
+      <table class="tabla-admin">
+        <thead id="thead-textos">
+          <tr>
+            <th>Texto</th>
+            <th>Módulo</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-textos-cuerpo"></tbody>
+      </table>
+
+      <div id="editor-texto-interfaz" class="tarjeta oculto" style="margin-top:20px;max-width:700px;"></div>
+    </div>
+
+    <!-- ─── CALCULADOR DE TARIFAS ─────────────────────────────────────────── -->
+    <div id="seccion-calculador" class="oculto">
+      <h1>Calculador de tarifas</h1>
+      <p class="subtitulo">Herramienta interna para calcular el precio aproximado de una ruta según el tarifario diurno. El resultado es orientativo — el precio final siempre lo marca el taxímetro.</p>
+
+      <!-- Tarifario editable -->
+      <div class="tarjeta" style="margin-bottom:20px;">
+        <h3 style="margin-top:0;">⚙️ Tarifario (editable)</h3>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label class="etiqueta">Bajada de bandera (€)</label>
+            <input type="number" id="tarifa-bajada" class="campo" step="0.01" style="width:120px;">
+          </div>
+          <div>
+            <label class="etiqueta">Precio por km diurno (€)</label>
+            <input type="number" id="tarifa-km" class="campo" step="0.01" style="width:120px;">
+          </div>
+          <div>
+            <label class="etiqueta">Suplemento aeropuerto/puerto (€)</label>
+            <input type="number" id="tarifa-suplemento" class="campo" step="0.01" style="width:120px;">
+          </div>
+          <button class="boton-primario" onclick="guardarTarifario()">💾 Guardar tarifario</button>
+          <span id="tarifa-msg" style="font-size:12px;"></span>
         </div>
-        <div id="mensaje-servicios" class="mensaje"></div>
       </div>
 
-      <h2>Categorías de vehículos</h2>
-      <p class="sub" style="margin-bottom:10px">Activa = existe en el sistema (se ofrece a los taxistas en el alta). Disponible = se ofrece HOY al cliente en el selector de vehículo.</p>
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr><th>Categoría</th><th>Pasajeros</th><th>Maletas</th><th>Sillas bebé (máx.)</th><th>Bajada (diurna / nocturna)</th><th>Foto</th><th>Activa</th><th>Disponible</th><th>Acción</th></tr>
-          </thead>
-          <tbody id="tabla-categorias"></tbody>
-        </table>
-      </div>
-      <button style="margin-top:10px" onclick="nuevaCategoria()">➕ Crear categoría nueva</button>
-
-      <!-- Editor de la categoría seleccionada -->
-      <div class="tarjeta oculto" id="editor-categoria" style="border:2px solid var(--costa);max-width:560px"></div>
-
-      <h2>Extras del viaje</h2>
-      <p class="sub" style="margin-bottom:10px">"Incluido" = gratis (solo informativo). Si lo desmarcas, se cobra el precio indicado. "Todas las categorías" = se ofrece en cualquier vehículo; si lo desmarcas, eliges en cuáles.</p>
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr><th>Orden</th><th>Extra</th><th>Incluido / Precio</th><th>Categorías</th><th>Activo</th><th>Acción</th></tr>
-          </thead>
-          <tbody id="tabla-extras"></tbody>
-        </table>
-      </div>
-      <button style="margin-top:10px" onclick="nuevoExtra()">➕ Añadir extra nuevo</button>
-
-      <!-- Editor del extra seleccionado -->
-      <div class="tarjeta oculto" id="editor-extra" style="border:2px solid var(--costa);max-width:560px"></div>
-
-      <h2>Conductores</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(true)">💬 Permitir contacto a TODOS</button>
-        <button class="peligro" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="contactoGlobal(false)">🔇 Quitar contacto a TODOS</button>
-      </div>
-
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th><th>Contacto</th><th>Vehículo</th><th>Categoría</th><th>Isla</th>
-              <th>Foto</th><th>Valoración</th><th>💬 Botón contacto</th><th>Tipo</th><th>Estado</th><th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-conductores"></tbody>
-        </table>
-      </div>
-
-      <button style="margin-top:10px" onclick="mostrarFormularioConductor()">➕ Añadir conductor</button>
-
-      <!-- Formulario de alta de conductor desde el admin -->
-      <div class="tarjeta oculto" id="formulario-conductor-admin" style="border:2px solid var(--costa);max-width:560px;margin-top:10px">
-        <h3 style="margin-top:0">➕ Añadir conductor</h3>
-        <p class="sub">El conductor pasa por la oficina con su documentación. La foto se sube desde aquí y queda aprobada directamente.</p>
-
-        <label>Nombre completo</label><input id="ac-nombre" type="text">
-        <label>Email (será su usuario)</label><input id="ac-email" type="email">
-        <label>Teléfono</label><input id="ac-telefono" type="tel">
-        <label>Contraseña provisional</label><input id="ac-password" type="text" placeholder="Mínimo 6 caracteres">
-        <label>Documento de identidad (DNI/NIE)</label><input id="ac-documento" type="text">
-        <label>Dirección</label><input id="ac-direccion" type="text">
-        <label>Código postal</label><input id="ac-cp" type="text">
-        <label>Municipio de residencia</label><input id="ac-municipio" type="text">
-        <label>Municipio de la licencia</label><input id="ac-municipio-licencia" type="text">
-        <label>Número de licencia municipal</label><input id="ac-numero-licencia" type="text">
-        <label>Central de flota (opcional)</label><input id="ac-central" type="text">
-        <label>Categoría del vehículo</label>
-        <select id="ac-categoria"></select>
-        <label>Marca</label>
-        <select id="ac-marca" onchange="cargarModelosAdmin()"><option value="">Selecciona marca…</option><option value="__nueva">➕ Otra marca</option></select>
-        <div id="ac-marca-nueva-caja" class="oculto"><label>Nueva marca</label><input id="ac-marca-nueva" type="text"></div>
-        <label>Modelo</label>
-        <select id="ac-modelo"><option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option></select>
-        <div id="ac-modelo-nuevo-caja" class="oculto"><label>Nuevo modelo</label><input id="ac-modelo-nuevo" type="text"></div>
-        <label>Matrícula</label><input id="ac-matricula" type="text">
-        <label>Número de taxi</label><input id="ac-numero-taxi" type="text">
-        <label>Plazas</label><input id="ac-plazas" type="number" min="1" max="12" value="4">
-        <label>Isla</label>
-        <select id="ac-isla">
-          <option>Gran Canaria</option><option>Tenerife</option><option>Lanzarote</option>
-          <option>Fuerteventura</option><option>La Palma</option><option>La Gomera</option><option>El Hierro</option>
-        </select>
-        <label>Foto del conductor (opcional, queda aprobada)</label>
-        <input type="file" id="ac-foto-input" accept="image/*" onchange="previsualizarFotoAdmin()">
-        <canvas id="ac-foto-canvas" style="display:none"></canvas>
-        <img id="ac-foto-preview" style="max-width:180px;border-radius:8px;margin-top:6px;display:none">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
-          <button onclick="crearConductorAdmin()">💾 Crear conductor</button>
-          <button class="secundario" onclick="document.getElementById('formulario-conductor-admin').classList.add('oculto')">Cancelar</button>
-        </div>
-        <div id="ac-mensaje" class="mensaje"></div>
-      </div>
-
-      <!-- Expediente del conductor seleccionado -->
-      <div class="tarjeta oculto" id="ficha-conductor" style="border:2px solid var(--costa)"></div>
-
-      <h2>Pasajeros</h2>
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr><th>Nombre</th><th>Apellido</th><th>Email</th><th>Teléfono</th><th>Alta</th><th>Estado</th><th>Acciones</th></tr>
-          </thead>
-          <tbody id="tabla-pasajeros"></tbody>
-        </table>
-      </div>
-
-      <h2>Últimas valoraciones</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="secundario" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="exportarValoraciones()">⬇ Exportar a CSV (Excel)</button>
-        <button class="peligro" style="margin-top:0;padding:8px 14px;font-size:0.85rem" onclick="eliminarTodasValoraciones()">🗑 Eliminar TODAS</button>
-      </div>
-      <div class="tabla-envoltura">
-        <table>
-          <thead>
-            <tr><th>Nº viaje</th><th>Fecha y hora</th><th>Conductor</th><th>Pasajero</th><th>⭐ Conductor</th><th>⭐ Servicio</th><th>Comentario</th><th></th></tr>
-          </thead>
-          <tbody id="tabla-valoraciones"></tbody>
-        </table>
-      </div>
-
-      <button class="secundario" onclick="cerrarSesion()" style="margin-top:24px">Cerrar sesión</button>
-    </section>
-  </main>
-
-  <script>
-    function mostrarMensaje(texto, tipo) {
-      const m = document.getElementById('mensaje');
-      m.textContent = texto;
-      m.className = 'mensaje ' + tipo;
-    }
-
-    async function iniciarSesion() {
-      const datos = {
-        email: document.getElementById('login-email').value,
-        password: document.getElementById('login-password').value
-      };
-      const r = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
-      });
-      const respuesta = await r.json();
-      if (respuesta.ok) cargarPanel();
-      else mostrarMensaje(respuesta.error, 'error');
-    }
-
-    async function cerrarSesion() {
-      await fetch('/api/logout', { method: 'POST' });
-      location.reload();
-    }
-
-    function volverInicio() {
-      document.getElementById('zona-panel').classList.add('oculto');
-      document.getElementById('zona-acceso').classList.remove('oculto');
-    }
-
-    async function cargarPanel() {
-      document.getElementById('zona-acceso').classList.add('oculto');
-      document.getElementById('zona-panel').classList.remove('oculto');
-      await cargarCategorias();
-      await Promise.all([cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]);
-    }
-
-    async function actualizarPanel() {
-      const btn = document.querySelector('button[onclick="actualizarPanel()"]');
-      if (btn) { btn.textContent = '⏳ Actualizando…'; btn.disabled = true; }
-      try {
-        await Promise.race([
-          Promise.all([cargarCategorias(), cargarResumen(), cargarConductores(), cargarPasajeros(), cargarAjustes(), cargarValoraciones(), cargarServicios(), cargarExtras()]),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
-        ]);
-      } catch(e) { /* timeout o error de red: el panel queda como está */ }
-      if (btn) { btn.textContent = '🔄 Actualizar'; btn.disabled = false; }
-    }
-
-    const ETIQUETAS_FOTO = {
-      sin_foto: '<span style="color:#5a6c79">Sin foto</span>',
-      pendiente: '<span class="etiqueta pendiente">FOTO PENDIENTE</span>',
-      aprobada: '<span class="etiqueta aprobado">foto ok</span>',
-      rechazada: '<span class="etiqueta suspendido">rechazada</span>'
-    };
-
-    async function verFicha(id) {
-      const r = await fetch('/api/admin/conductores/' + id + '/ficha');
-      const { conductor: c } = await r.json();
-      const ficha = document.getElementById('ficha-conductor');
-      ficha.classList.remove('oculto');
-      const campo = (etiqueta, id_campo, valor) =>
-        `<label style="margin-top:8px">${etiqueta}</label><input id="f-${id_campo}" type="text" value="${escapar(valor == null ? '' : String(valor))}">`;
-      ficha.innerHTML = `
-        <h2 style="margin-top:0">📋 Expediente editable: ${escapar(c.nombre)} <span style="font-size:0.8rem;color:#5a6c79">(modifica lo que necesites y pulsa Guardar)</span></h2>
-        ${c.foto ? '<img src="' + c.foto + '" alt="Foto de carné" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:2px solid var(--borde);float:right;margin-left:12px">' : ''}
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">
-          ${campo('Nombre completo', 'nombre', c.nombre)}
-          ${campo('Documento (DNI/NIE)', 'documento', c.documento)}
-          ${campo('Teléfono', 'telefono', c.telefono)}
-          ${campo('Email', 'email', c.email)}
-          ${campo('Dirección', 'direccion', c.direccion)}
-          ${campo('Código postal', 'cp', c.cp)}
-          ${campo('Municipio', 'municipio', c.municipio)}
-          ${campo('Municipio de la licencia', 'municipio_licencia', c.municipio_licencia)}
-          ${campo('Nº de licencia', 'numero_licencia', c.numero_licencia)}
-          ${campo('Central de flota', 'central_flota', c.central_flota)}
-          ${campo('Marca del vehículo', 'vehiculo_marca', c.vehiculo_marca)}
-          ${campo('Modelo', 'vehiculo_modelo', c.vehiculo_modelo)}
-          ${campo('Matrícula', 'matricula', c.matricula)}
-          ${campo('Nº de taxi', 'numero_taxi', c.numero_taxi)}
-          ${campo('Plazas', 'plazas', c.plazas)}
-          ${campo('Isla', 'isla', c.isla)}
-        </div>
-        <p style="margin-top:10px">
-          <strong>Categoría:</strong> ${escapar(c.categoria || '—')} ·
-          <strong>Foto de carné:</strong> ${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}
-          ${c.foto_motivo ? '<br><em>Motivo del rechazo: ' + escapar(c.foto_motivo) + '</em>' : ''}
+      <!-- Calculador con mapa de pin central -->
+      <div class="tarjeta">
+        <h3 style="margin-top:0;">🗺️ Calcular precio de una ruta</h3>
+        <p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">
+          Escribe para buscar, selecciona una sugerencia y el mapa saltará ahí. Luego ajusta moviendo el mapa hasta que la punta del pin quede en el punto exacto y pulsa el botón.
         </p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button style="margin-top:0;padding:8px 14px" onclick="guardarFicha(${c.id})">💾 Guardar cambios</button>
-          ${c.foto_estado === 'pendiente' || c.foto_estado === 'rechazada' ? `<button style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'aprobar')">✅ Aprobar foto</button>` : ''}
-          ${c.foto_estado === 'pendiente' || c.foto_estado === 'aprobada' ? `<button class="peligro" style="margin-top:0;padding:8px 14px" onclick="decidirFoto(${c.id}, 'rechazar')">❌ Rechazar foto</button>` : ''}
-          <button class="secundario" style="margin-top:0;padding:8px 14px" onclick="document.getElementById('ficha-conductor').classList.add('oculto')">Cerrar ficha</button>
-        </div>`;
-      ficha.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
 
-    async function guardarFicha(id) {
-      const datos = {};
-      ['nombre','documento','telefono','email','direccion','cp','municipio','municipio_licencia',
-       'numero_licencia','central_flota','vehiculo_marca','vehiculo_modelo','matricula','numero_taxi',
-       'plazas','isla'].forEach(campo => {
-        datos[campo] = document.getElementById('f-' + campo).value;
-      });
-      const r = await fetch('/api/admin/conductores/' + id + '/editar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
-      });
-      const respuesta = await r.json();
-      if (respuesta.ok) {
-        alert('Ficha guardada. ✓');
-        await Promise.all([cargarConductores(), verFicha(id)]);
-      } else alert(respuesta.error);
-    }
-
-        async function decidirFoto(id, accion) {
-      let motivo = null;
-      if (accion === 'rechazar') {
-        motivo = prompt('Motivo del rechazo (el conductor lo verá):', 'La foto no es clara o no es de tipo carné.');
-        if (motivo === null) return;
-      }
-      await fetch('/api/admin/conductores/' + id + '/foto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion, motivo })
-      });
-      await Promise.all([cargarConductores(), verFicha(id)]);
-    }
-
-    // ---------- Servicios del portal ----------
-    async function cargarServicios() {
-      const r = await fetch('/api/admin/servicios');
-      const { servicios } = await r.json();
-      document.getElementById('tabla-servicios').innerHTML = servicios.map(s => `
-        <tr>
-          <td><input type="number" min="1" value="${s.posicion}" style="width:70px"
-                onchange="cambiarPosicionServicio(${s.id}, this.value)"></td>
-          <td><input type="text" value="${escapar(s.nombre)}" style="min-width:200px;font-weight:700"
-                onchange="renombrarServicio(${s.id}, this.value)"></td>
-          <td>
-            <select onchange="cambiarEstadoServicio(${s.id}, this.value)">
-              <option value="inactivo" ${s.estado === 'inactivo' ? 'selected' : ''}>Inactivo (oculto)</option>
-              <option value="activo" ${s.estado === 'activo' ? 'selected' : ''}>Activo (público)</option>
-              <option value="interno" ${s.estado === 'interno' ? 'selected' : ''}>Interno (solo admin)</option>
-            </select>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    async function crearServicio() {
-      const r = await fetch('/api/admin/servicios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nombre: document.getElementById('nuevo-servicio-nombre').value,
-          posicion: document.getElementById('nuevo-servicio-posicion').value
-        })
-      });
-      const respuesta = await r.json();
-      const m = document.getElementById('mensaje-servicios');
-      if (respuesta.ok) {
-        document.getElementById('formulario-servicio').classList.add('oculto');
-        document.querySelector('[onclick*="formulario-servicio"]').classList.remove('oculto');
-        document.getElementById('nuevo-servicio-nombre').value = '';
-        cargarServicios();
-      } else { m.textContent = respuesta.error; m.className = 'mensaje error'; }
-    }
-
-    async function cambiarEstadoServicio(id, estado) {
-      await fetch('/api/admin/servicios/' + id, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado })
-      });
-    }
-
-    async function renombrarServicio(id, nombre) {
-      const r = await fetch('/api/admin/servicios/' + id, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre })
-      });
-      const respuesta = await r.json();
-      if (!respuesta.ok) { alert(respuesta.error); cargarServicios(); }
-    }
-
-    async function cambiarPosicionServicio(id, posicion) {
-      await fetch('/api/admin/servicios/' + id, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posicion })
-      });
-    }
-
-    // ---------- Foto de una categoría (compresión en el navegador, como la del chofer) ----------
-    function elegirFotoCategoria(id) {
-      const entrada = document.createElement('input');
-      entrada.type = 'file';
-      entrada.accept = 'image/*';
-      entrada.onchange = function () {
-        const archivo = entrada.files && entrada.files[0];
-        if (!archivo) return;
-        const lector = new FileReader();
-        lector.onload = function (evento) {
-          const imagen = new Image();
-          imagen.onload = async function () {
-            // Esperar a que el navegador termine de decodificar la imagen del todo;
-            // si no, la primera vez el canvas puede salir en blanco/negro.
-            if (imagen.decode) {
-              try { await imagen.decode(); } catch (e) { /* seguimos igualmente */ }
-            }
-            const escala = Math.min(1, 600 / imagen.width);
-            const lienzo = document.createElement('canvas');
-            lienzo.width = Math.round(imagen.width * escala);
-            lienzo.height = Math.round(imagen.height * escala);
-            const contexto = lienzo.getContext('2d');
-            // JPEG no admite transparencia: si no rellenamos primero, las zonas
-            // transparentes del PNG original se exportan en negro.
-            contexto.fillStyle = '#ffffff';
-            contexto.fillRect(0, 0, lienzo.width, lienzo.height);
-            contexto.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
-            const r = await fetch('/api/admin/categorias/' + id + '/foto', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ foto: lienzo.toDataURL('image/jpeg', 0.8) })
-            });
-            if ((await r.json()).ok) { alert('Foto de la categoría guardada. 📷'); cargarCategorias(); }
-            else alert('No se pudo guardar la foto (¿demasiado grande?).');
-          };
-          imagen.src = evento.target.result;
-        };
-        lector.readAsDataURL(archivo);
-      };
-      entrada.click();
-    }
-
-    // ---------- Conductores: contacto, nombre, eliminación ----------
-    async function cambiarContacto(id, permite) {
-      await fetch('/api/admin/conductores/' + id + '/contacto', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permite })
-      });
-    }
-
-    async function contactoGlobal(permite) {
-      if (!confirm(permite
-        ? '¿Activar el botón de contacto para TODOS los conductores?'
-        : '¿Quitar el botón de contacto a TODOS los conductores?')) return;
-      await fetch('/api/admin/conductores-contacto-global', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permite })
-      });
-      cargarConductores();
-    }
-
-    async function editarNombreConductor(id, actual) {
-      const nombre = prompt('Nombre correcto del conductor:', actual);
-      if (nombre === null || !nombre.trim()) return;
-      await fetch('/api/admin/conductores/' + id + '/nombre', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre })
-      });
-      cargarConductores();
-    }
-
-    async function eliminarConductor(id, nombre) {
-      if (!confirm('⚠️ Vas a ELIMINAR al conductor "' + nombre + '" definitivamente.\nSus viajes pasados quedarán sin conductor asignado.\n\n¿Seguro?')) return;
-      await fetch('/api/admin/conductores/' + id, { method: 'DELETE' });
-      await Promise.all([cargarResumen(), cargarConductores()]);
-    }
-
-    async function eliminarPasajero(id, nombre) {
-      if (!confirm('⚠️ Vas a ELIMINAR al pasajero "' + nombre + '" definitivamente, junto con sus valoraciones.\n\n¿Seguro?')) return;
-      await fetch('/api/admin/pasajeros/' + id, { method: 'DELETE' });
-      await Promise.all([cargarResumen(), cargarPasajeros(), cargarValoraciones(), cargarConductores()]);
-    }
-
-    // ---------- Valoraciones: eliminar y exportar ----------
-    let ultimasValoraciones = [];
-
-    async function eliminarValoracion(id) {
-      if (!confirm('¿Eliminar esta valoración?')) return;
-      await fetch('/api/admin/valoraciones/' + id, { method: 'DELETE' });
-      await Promise.all([cargarValoraciones(), cargarConductores()]);
-    }
-
-    async function eliminarTodasValoraciones() {
-      if (!confirm('⚠️ Vas a eliminar TODAS las valoraciones. Esta acción no se puede deshacer.\n\n¿Seguro?')) return;
-      if (!confirm('Última confirmación: ¿borrar TODAS las valoraciones?')) return;
-      await fetch('/api/admin/valoraciones', { method: 'DELETE' });
-      await Promise.all([cargarValoraciones(), cargarConductores()]);
-    }
-
-    function exportarValoraciones() {
-      if (!ultimasValoraciones.length) { alert('No hay valoraciones que exportar.'); return; }
-      const limpiar = t => '"' + String(t == null ? '' : t).replace(/"/g, '""') + '"';
-      const filas = [
-        ['Nº viaje', 'Fecha', 'Hora', 'Conductor', 'Nº taxi', 'Pasajero', 'Estrellas conductor', 'Estrellas servicio', 'Comentario'].join(';')
-      ];
-      ultimasValoraciones.forEach(v => {
-        const fecha = new Date(v.creado_en);
-        filas.push([
-          v.viaje_id,
-          fecha.toLocaleDateString('es-ES'),
-          fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-          limpiar(v.conductor || ''),
-          limpiar(v.numero_taxi || ''),
-          limpiar(v.pasajero),
-          v.estrellas_conductor,
-          v.estrellas_servicio,
-          limpiar(v.comentario || '')
-        ].join(';'));
-      });
-      const blob = new Blob(['\ufeff' + filas.join('\n')], { type: 'text/csv;charset=utf-8' });
-      const enlace = document.createElement('a');
-      enlace.href = URL.createObjectURL(blob);
-      enlace.download = 'valoraciones-taxi-guanche.csv';
-      enlace.click();
-    }
-
-    let categoriasCache = [];
-    let catalogoAdmin = null;
-
-    async function cargarCategorias() {
-      const r = await fetch('/api/admin/categorias');
-      const { categorias } = await r.json();
-      categoriasCache = categorias;
-      document.getElementById('tabla-categorias').innerHTML = categorias.map(cat => `
-        <tr>
-          <td><strong>${escapar(cat.nombre)}</strong></td>
-          <td>${cat.capacidad_pasajeros}</td>
-          <td>${escapar(cat.capacidad_maletas)}</td>
-          <td>${cat.limite_sillas}</td>
-          <td>${Number(cat.bajada_diurna).toFixed(2)} € / ${Number(cat.bajada_nocturna).toFixed(2)} €</td>
-          <td>
-            ${cat.tiene_foto ? '✅' : '—'}
-            <button class="secundario" style="margin-top:0;padding:6px 10px;font-size:0.8rem" onclick="elegirFotoCategoria(${cat.id})">📷 ${cat.tiene_foto ? 'Cambiar' : 'Subir'}</button>
-          </td>
-          <td>
-            <span class="etiqueta ${cat.activa ? 'aprobado' : 'pendiente'}">${cat.activa ? 'ACTIVA' : 'inactiva'}</span><br>
-            <button class="${cat.activa ? 'peligro' : ''}" style="margin-top:4px;padding:6px 12px;font-size:0.8rem"
-              onclick="alternarCategoria(${cat.id}, ${!cat.activa})">${cat.activa ? 'Desactivar' : 'Activar'}</button>
-          </td>
-          <td>
-            <span class="etiqueta ${cat.disponible ? 'aprobado' : 'pendiente'}">${cat.disponible ? 'DISPONIBLE' : 'no disponible'}</span><br>
-            <button class="${cat.disponible ? 'peligro' : ''}" style="margin-top:4px;padding:6px 12px;font-size:0.8rem"
-              onclick="alternarDisponible(${cat.id}, ${!cat.disponible})">${cat.disponible ? 'Quitar de hoy' : 'Ofrecer hoy'}</button>
-          </td>
-          <td>
-            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
-              onclick="editarCategoria(${cat.id})">✏️ Editar</button>
-            <button class="peligro" style="margin-top:4px;padding:6px 12px;font-size:0.82rem"
-              onclick="eliminarCategoria(${cat.id})">🗑️ Eliminar</button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    function formularioCategoria(cat) {
-      return `
-        <label>Nombre</label>
-        <input id="cat-nombre" type="text" value="${escapar(cat.nombre || '')}">
-        <label>Pasajeros (capacidad)</label>
-        <input id="cat-pasajeros" type="number" min="1" max="12" value="${cat.capacidad_pasajeros || 4}">
-        <label>Maletas (texto libre, ej.: "3 grandes")</label>
-        <input id="cat-maletas" type="text" value="${escapar(cat.capacidad_maletas || '')}">
-        <label>Sillas de bebé (máximo)</label>
-        <input id="cat-sillas" type="number" min="0" max="6" value="${cat.limite_sillas || 0}">
-        <label>Descripción</label>
-        <input id="cat-descripcion" type="text" value="${escapar(cat.descripcion || '')}">
-        <label>Bajada de bandera diurna (€, 6:00-22:00)</label>
-        <input id="cat-bajada-diurna" type="number" step="0.01" min="0" value="${Number(cat.bajada_diurna || 0).toFixed(2)}">
-        <label>Bajada de bandera nocturna (€, 22:00-6:00)</label>
-        <input id="cat-bajada-nocturna" type="number" step="0.01" min="0" value="${Number(cat.bajada_nocturna || 0).toFixed(2)}">`;
-    }
-
-    function editarCategoria(id) {
-      const cat = categoriasCache.find(x => x.id === id);
-      if (!cat) return;
-      const editor = document.getElementById('editor-categoria');
-      editor.classList.remove('oculto');
-      editor.innerHTML = `
-        <h2 style="margin-top:0">✏️ Editar categoría</h2>
-        ${formularioCategoria(cat)}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button style="margin-top:10px" onclick="guardarCategoria(${cat.id})">💾 Guardar cambios</button>
-          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
-        </div>`;
-      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    function nuevaCategoria() {
-      const editor = document.getElementById('editor-categoria');
-      editor.classList.remove('oculto');
-      editor.innerHTML = `
-        <h2 style="margin-top:0">➕ Nueva categoría</h2>
-        ${formularioCategoria({})}
-        <p class="sub">Nace inactiva y no disponible; actívala desde la tabla cuando esté lista.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button style="margin-top:10px" onclick="guardarCategoria(null)">💾 Crear categoría</button>
-          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-categoria').classList.add('oculto')">Cancelar</button>
-        </div>`;
-      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    async function guardarCategoria(id) {
-      const datos = {
-        nombre: document.getElementById('cat-nombre').value,
-        capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
-        capacidad_maletas: document.getElementById('cat-maletas').value,
-        limite_sillas: document.getElementById('cat-sillas').value,
-        descripcion: document.getElementById('cat-descripcion').value,
-        bajada_diurna: document.getElementById('cat-bajada-diurna').value,
-        bajada_nocturna: document.getElementById('cat-bajada-nocturna').value
-      };
-      const url = id ? '/api/admin/categorias/' + id + '/editar' : '/api/admin/categorias';
-      const r = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
-      });
-      const respuesta = await r.json();
-      if (respuesta.ok) {
-        document.getElementById('editor-categoria').classList.add('oculto');
-        cargarCategorias();
-      } else alert(respuesta.error);
-    }
-
-    async function eliminarCategoria(id) {
-      const cat = categoriasCache.find(x => x.id === id);
-      if (!confirm('¿Eliminar la categoría "' + (cat ? cat.nombre : '') + '"? Esta acción no se puede deshacer.')) return;
-      const r = await fetch('/api/admin/categorias/' + id + '/eliminar', { method: 'POST' });
-      const respuesta = await r.json();
-      if (respuesta.ok) cargarCategorias();
-      else alert(respuesta.error);
-    }
-
-    async function alternarCategoria(id, activa) {
-      await fetch('/api/admin/categorias/' + id + '/activa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activa })
-      });
-      await cargarCategorias();
-    }
-
-    async function alternarDisponible(id, disponible) {
-      await fetch('/api/admin/categorias/' + id + '/disponible', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disponible })
-      });
-      await cargarCategorias();
-    }
-
-    // ---------- Extras del viaje ----------
-    let extrasCache = [];
-
-    async function cargarExtras() {
-      const r = await fetch('/api/admin/extras');
-      const { extras } = await r.json();
-      extrasCache = extras;
-      document.getElementById('tabla-extras').innerHTML = extras.map(ex => `
-        <tr>
-          <td>${ex.orden}</td>
-          <td><strong>${escapar(ex.nombre)}</strong></td>
-          <td>${ex.incluido ? 'Incluido (gratis)' : Number(ex.precio).toFixed(2) + ' €'}</td>
-          <td>${ex.todas_categorias ? 'Todas' : (ex.categorias.map(id => {
-                const c = categoriasCache.find(c => c.id === id);
-                return c ? escapar(c.nombre) : '?';
-              }).join(', ') || '—')}</td>
-          <td><span class="etiqueta ${ex.activo ? 'aprobado' : 'pendiente'}">${ex.activo ? 'ACTIVO' : 'inactivo'}</span></td>
-          <td>
-            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="editarExtra(${ex.id})">✏️ Editar</button>
-            <button class="${ex.activo ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
-              onclick="alternarExtraActivo(${ex.id}, ${!ex.activo})">${ex.activo ? 'Desactivar' : 'Activar'}</button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    function formularioExtra(ex) {
-      const categoriasHtml = categoriasCache.map(c => `
-        <label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-weight:normal">
-          <input type="checkbox" class="extra-categoria" value="${c.id}" ${ex.categorias && ex.categorias.includes(c.id) ? 'checked' : ''}> ${escapar(c.nombre)}
-        </label>`).join('');
-      return `
-        <label>Nombre</label>
-        <input id="extra-nombre" type="text" value="${escapar(ex.nombre || '')}">
-        <label>Orden (los extras se listan de menor a mayor)</label>
-        <input id="extra-orden" type="number" value="${ex.orden || 0}">
-        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
-          <input id="extra-incluido" type="checkbox" ${ex.incluido !== false ? 'checked' : ''} onchange="document.getElementById('extra-precio-caja').classList.toggle('oculto', this.checked)">
-          Incluido (gratis, solo informativo)
-        </label>
-        <div id="extra-precio-caja" class="${ex.incluido !== false ? 'oculto' : ''}">
-          <label>Precio (€)</label>
-          <input id="extra-precio" type="number" step="0.01" min="0" value="${Number(ex.precio || 0).toFixed(2)}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <!-- Origen -->
+          <div>
+            <label class="etiqueta" style="color:#2e7d32;">📍 Origen</label>
+            <div style="position:relative;">
+              <input type="text" id="calc-origen" class="campo" placeholder="Escribe el origen..." oninput="buscarLugar('origen')" autocomplete="off">
+              <div id="sugerencias-origen" style="position:absolute;top:100%;left:0;right:0;z-index:2000;"></div>
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:#2e7d32;" id="label-origen">Sin fijar</div>
+            <button class="boton-costa" id="btn-fijar-origen" onclick="fijarPunto('origen')" style="margin-top:6px;padding:7px 14px;font-size:12px;">✅ Fijar origen en el pin</button>
+          </div>
+          <!-- Destino -->
+          <div>
+            <label class="etiqueta" style="color:#c0392b;">📍 Destino</label>
+            <div style="position:relative;">
+              <input type="text" id="calc-destino" class="campo" placeholder="Escribe el destino..." oninput="buscarLugar('destino')" autocomplete="off">
+              <div id="sugerencias-destino" style="position:absolute;top:100%;left:0;right:0;z-index:2000;"></div>
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:#c0392b;" id="label-destino">Sin fijar</div>
+            <button class="boton-secundario" id="btn-fijar-destino" onclick="fijarPunto('destino')" style="margin-top:6px;padding:7px 14px;font-size:12px;">✅ Fijar destino en el pin</button>
+          </div>
         </div>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
-          <input id="extra-todas" type="checkbox" ${ex.todas_categorias !== false ? 'checked' : ''} onchange="document.getElementById('extra-categorias-caja').classList.toggle('oculto', this.checked)">
-          Disponible en todas las categorías
-        </label>
-        <div id="extra-categorias-caja" class="${ex.todas_categorias !== false ? 'oculto' : ''}" style="margin-top:8px">
-          ${categoriasHtml}
-        </div>`;
-    }
 
-    function editarExtra(id) {
-      const ex = extrasCache.find(x => x.id === id);
-      if (!ex) return;
-      const editor = document.getElementById('editor-extra');
-      editor.classList.remove('oculto');
-      editor.innerHTML = `
-        <h2 style="margin-top:0">✏️ Editar extra</h2>
-        ${formularioExtra(ex)}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button style="margin-top:10px" onclick="guardarExtra(${ex.id})">💾 Guardar cambios</button>
-          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-extra').classList.add('oculto')">Cancelar</button>
-        </div>`;
-      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+          <div>
+            <label class="etiqueta" style="display:inline;margin-right:6px;">¿Aeropuerto o puerto?</label>
+            <select id="calc-suplemento" class="campo" style="height:32px;font-size:12px;display:inline;width:auto;">
+              <option value="0">No</option>
+              <option value="1">Sí (+2,10€)</option>
+            </select>
+          </div>
+          <button class="boton-primario" id="btn-calcular" onclick="calcularRuta()">🧮 Calcular precio</button>
+          <button class="boton-secundario" onclick="reiniciarCalculador()" style="font-size:12px;">↺ Reiniciar</button>
+        </div>
 
-    function nuevoExtra() {
-      const editor = document.getElementById('editor-extra');
-      editor.classList.remove('oculto');
-      editor.innerHTML = `
-        <h2 style="margin-top:0">➕ Nuevo extra</h2>
-        ${formularioExtra({ incluido: true, todas_categorias: true, orden: (extrasCache.length + 1) * 10 })}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button style="margin-top:10px" onclick="guardarExtra(null)">💾 Crear extra</button>
-          <button class="secundario" style="margin-top:10px" onclick="document.getElementById('editor-extra').classList.add('oculto')">Cancelar</button>
-        </div>`;
-      editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+        <!-- Mapa con pin fijo en el centro -->
+        <div style="position:relative;height:420px;border-radius:10px;overflow:hidden;border:1px solid var(--gris-borde);margin-bottom:14px;">
+          <div id="mapa-calculador" style="height:100%;width:100%;"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);pointer-events:none;z-index:1000;">
+            <svg width="32" height="48" viewBox="0 0 32 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 0C7.163 0 0 7.163 0 16C0 28 16 48 16 48C16 48 32 28 32 16C32 7.163 24.837 0 16 0Z" fill="#1a1a2e" opacity="0.85"/>
+              <circle cx="16" cy="16" r="7" fill="white"/>
+            </svg>
+          </div>
+        </div>
 
-    async function guardarExtra(id) {
-      const categorias = Array.from(document.querySelectorAll('.extra-categoria:checked')).map(c => c.value);
-      const datos = {
-        nombre: document.getElementById('extra-nombre').value,
-        incluido: document.getElementById('extra-incluido').checked,
-        precio: document.getElementById('extra-precio').value,
-        todas_categorias: document.getElementById('extra-todas').checked,
-        orden: document.getElementById('extra-orden').value,
-        categorias
-      };
-      const url = id ? '/api/admin/extras/' + id + '/editar' : '/api/admin/extras';
-      const r = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
-      });
-      const respuesta = await r.json();
-      if (respuesta.ok) {
-        document.getElementById('editor-extra').classList.add('oculto');
-        cargarExtras();
-      } else alert(respuesta.error);
-    }
+        <!-- Resultado -->
+        <div id="resultado-calculo" style="display:none;background:var(--gris-fondo);border-radius:8px;padding:16px 20px;">
+          <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:center;">
+            <div>
+              <span style="font-size:12px;color:var(--texto-muted);">Distancia</span>
+              <div style="font-size:22px;font-weight:700;" id="res-km">— km</div>
+            </div>
+            <div>
+              <span style="font-size:12px;color:var(--texto-muted);">Precio aproximado (tarifa diurna)</span>
+              <div style="font-size:28px;font-weight:700;color:var(--terracota);" id="res-precio">— €</div>
+            </div>
+            <div style="font-size:12px;color:var(--texto-muted);max-width:320px;" id="res-formula"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    async function alternarExtraActivo(id, activo) {
-      await fetch('/api/admin/extras/' + id + '/activo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activo })
-      });
-      await cargarExtras();
-    }
+    <div id="seccion-extras" class="oculto">
+      <h1>Extras del traslado</h1>
+      <p class="subtitulo">Define los servicios adicionales que el cliente puede seleccionar al reservar. El precio se suma al precio estimado del traslado.</p>
 
-    async function cargarValoraciones() {
-      const r = await fetch('/api/admin/valoraciones');
-      const { valoraciones } = await r.json();
-      const cuerpo = document.getElementById('tabla-valoraciones');
-      if (valoraciones.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="6">Todavía no hay valoraciones. Aparecerán aquí cuando los pasajeros valoren sus viajes.</td></tr>';
-        return;
-      }
-      ultimasValoraciones = valoraciones; // guardadas para la exportación
-      cuerpo.innerHTML = valoraciones.map(v => `
-        <tr>
-          <td><strong>#${v.viaje_id}</strong></td>
-          <td>${new Date(v.creado_en).toLocaleDateString('es-ES')} ${new Date(v.creado_en).toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}</td>
-          <td>${escapar(v.conductor || '—')}${v.numero_taxi ? ' (nº ' + escapar(v.numero_taxi) + ')' : ''}</td>
-          <td>${escapar(v.pasajero)}</td>
-          <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_conductor)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_conductor)}</span></span></td>
-          <td><span class="estrellas-ambar">${'★'.repeat(v.estrellas_servicio)}<span class="vacia">${'☆'.repeat(5 - v.estrellas_servicio)}</span></span></td>
-          <td style="white-space:normal;max-width:280px">${escapar(v.comentario || '')}</td>
-          <td><button class="peligro" style="margin-top:0;padding:5px 10px;font-size:0.78rem" onclick="eliminarValoracion(${v.id})">🗑</button></td>
-        </tr>
-      `).join('');
-    }
+      <div class="tarjeta" style="margin-bottom:20px;">
+        <button class="boton-primario" onclick="abrirFormularioExtra(null)">+ Añadir extra</button>
+      </div>
 
-    async function cargarAjustes() {
-      const r = await fetch('/api/admin/ajustes');
-      const ajustes = await r.json();
-      document.getElementById('ajuste-activa').checked = ajustes.activa;
-      document.getElementById('ajuste-minutos').value = ajustes.minutos_gratis;
-      document.getElementById('ajuste-importe').value = ajustes.importe;
-    }
+      <table class="tabla-admin">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Precio</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-extras"></tbody>
+      </table>
 
-    async function guardarAjustes() {
-      const r = await fetch('/api/admin/ajustes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activa: document.getElementById('ajuste-activa').checked,
-          minutos_gratis: document.getElementById('ajuste-minutos').value,
-          importe: document.getElementById('ajuste-importe').value
-        })
-      });
-      const m = document.getElementById('mensaje-ajustes');
-      if ((await r.json()).ok) { m.textContent = 'Ajustes guardados. ✓'; m.className = 'mensaje ok'; }
-      else { m.textContent = 'No se pudieron guardar.'; m.className = 'mensaje error'; }
-    }
+      <!-- Modal formulario extra -->
+      <div id="modal-extra" class="oculto" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;">
+        <div class="tarjeta" style="width:100%;max-width:420px;position:relative;">
+          <h3 style="margin-top:0;" id="modal-extra-titulo">Nuevo extra</h3>
+          <div style="margin-bottom:12px;">
+            <label class="etiqueta">Nombre del extra</label>
+            <input type="text" id="extra-nombre" class="campo" placeholder="Ej: Silla de seguridad para niños">
+          </div>
+          <div style="margin-bottom:20px;">
+            <label class="etiqueta">Precio (€)</label>
+            <input type="number" id="extra-precio" class="campo" step="0.01" min="0" placeholder="0.00" style="width:140px;">
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="boton-primario" onclick="guardarExtra()">💾 Guardar</button>
+            <button class="boton-secundario" onclick="cerrarModalExtra()">Cancelar</button>
+          </div>
+          <div id="extra-msg" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+      </div>
+    </div>
 
-    async function cargarResumen() {
-      const r = await fetch('/api/admin/resumen');
-      const d = await r.json();
-      document.getElementById('cifras').innerHTML =
-        '<div class="cifra"><strong>' + d.pasajeros + '</strong><span>Pasajeros</span></div>' +
-        '<div class="cifra"><strong>' + d.conductores.total + '</strong><span>Conductores</span></div>' +
-        '<div class="cifra"><strong>' + d.conductores.pendientes + '</strong><span>Pendientes de aprobar</span></div>' +
-        '<div class="cifra"><strong>' + d.conductores.aprobados + '</strong><span>Aprobados</span></div>' +
-        '<div class="cifra"><strong>' + d.viajes + '</strong><span>Viajes</span></div>';
-    }
+  </div>
+</div>
 
-    function escapar(texto) {
-      const div = document.createElement('div');
-      div.textContent = texto == null ? '' : String(texto);
-      return div.innerHTML;
-    }
+<script>
+function mostrarAdmin() {
+  document.getElementById('pantalla-login').classList.add('oculto');
+  document.getElementById('pantalla-admin').classList.remove('oculto');
+  cargarFondos();
+  cargarCategorias();
+  cargarConductores();
+  cargarPreciosGrid();
+}
 
-    async function mostrarFormularioConductor() {
-      const form = document.getElementById('formulario-conductor-admin');
-      form.classList.remove('oculto');
-      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (catalogoAdmin) return;
-      const r = await fetch('/api/conductor/catalogo');
-      catalogoAdmin = await r.json();
-      // Categorías
-      const selCat = document.getElementById('ac-categoria');
-      selCat.innerHTML = catalogoAdmin.categorias.map(c => `<option value="${c.id}">${escapar(c.nombre)}</option>`).join('');
-      // Marcas
-      const selMarca = document.getElementById('ac-marca');
-      catalogoAdmin.marcas.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id; opt.textContent = m.nombre;
-        selMarca.insertBefore(opt, selMarca.lastElementChild);
-      });
+function comprobarSesion() {
+  fetch('/admin/sesion').then(function (r) { return r.json(); }).then(function (d) {
+    if (d.autenticado) {
+      mostrarAdmin();
     }
+  });
+}
 
-    function cargarModelosAdmin() {
-      const marcaId = parseInt(document.getElementById('ac-marca').value, 10);
-      const esNueva = document.getElementById('ac-marca').value === '__nueva';
-      document.getElementById('ac-marca-nueva-caja').classList.toggle('oculto', !esNueva);
-      const selModelo = document.getElementById('ac-modelo');
-      selModelo.innerHTML = '<option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option>';
-      if (!catalogoAdmin || !marcaId) return;
-      const marca = catalogoAdmin.marcas.find(m => m.id === marcaId);
-      if (!marca) return;
-      marca.modelos.forEach(mo => {
-        const opt = document.createElement('option');
-        opt.value = mo.id; opt.textContent = mo.nombre;
-        selModelo.insertBefore(opt, selModelo.lastElementChild);
-      });
-    }
-
-    document.addEventListener('change', function(e) {
-      if (e.target.id === 'ac-modelo') {
-        document.getElementById('ac-modelo-nuevo-caja').classList.toggle('oculto', e.target.value !== '__nuevo');
+document.getElementById('login-boton').addEventListener('click', function () {
+  var usuario = document.getElementById('login-usuario').value;
+  var password = document.getElementById('login-password').value;
+  fetch('/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario: usuario, password: password })
+  }).then(function (r) { return r.json().then(function (d) { return { status: r.status, datos: d }; }); })
+    .then(function (res) {
+      if (res.status === 200) {
+        mostrarAdmin();
+      } else {
+        document.getElementById('login-error').innerHTML = '<div class="aviso-error">' + res.datos.error + '</div>';
       }
     });
+});
 
-    async function previsualizarFotoAdmin() {
-      const archivo = document.getElementById('ac-foto-input').files[0];
-      if (!archivo) return;
-      const reader = new FileReader();
-      reader.onload = async function(ev) {
-        const imagen = new Image();
-        imagen.onload = async function() {
-          if (imagen.decode) try { await imagen.decode(); } catch(e) {}
-          const escala = Math.min(1, 600 / imagen.width);
-          const lienzo = document.createElement('canvas');
+document.getElementById('boton-salir').addEventListener('click', function () {
+  fetch('/admin/logout', { method: 'POST' }).then(function () {
+    location.reload();
+  });
+});
+
+document.querySelectorAll('.item-menu').forEach(function (boton) {
+  boton.addEventListener('click', function () {
+    document.querySelectorAll('.item-menu').forEach(function (b) { b.classList.remove('activo'); });
+    boton.classList.add('activo');
+    ['fondos', 'categorias', 'conductores', 'destinos', 'precios', 'seo', 'idiomas', 'calculador', 'extras'].forEach(function (s) {
+      document.getElementById('seccion-' + s).classList.add('oculto');
+    });
+    document.getElementById('seccion-' + boton.dataset.seccion).classList.remove('oculto');
+    if (boton.dataset.seccion === 'seo') cargarSEO();
+    if (boton.dataset.seccion === 'idiomas') cargarTextosInterfaz();
+    if (boton.dataset.seccion === 'calculador') iniciarCalculador();
+    if (boton.dataset.seccion === 'destinos') cargarDestinos();
+    if (boton.dataset.seccion === 'precios') cargarPreciosGrid();
+    if (boton.dataset.seccion === 'extras') cargarExtras();
+  });
+});
+
+function cargarFondos() {
+  fetch('/admin/fondos').then(function (r) { return r.json(); }).then(function (fondos) {
+    var grid = document.getElementById('grid-fondos');
+    grid.innerHTML = '';
+    fondos.forEach(function (f) {
+      var tarjeta = document.createElement('div');
+      tarjeta.className = 'tarjeta-fondo';
+      tarjeta.innerHTML =
+        '<img class="miniatura" src="/admin/fondos/' + f.id + '/imagen">' +
+        '<div class="fila-acciones">' +
+          '<span class="nombre-fondo">' + f.nombre + '</span>' +
+          (f.activo
+            ? '<span class="badge-activo">Activo</span>'
+            : '<button class="boton-secundario" style="padding:4px 10px;font-size:11px;" onclick="activarFondo(' + f.id + ')">Usar este</button>') +
+        '</div>' +
+        '<div style="text-align:right;margin-top:4px;"><button class="eliminar-fondo" onclick="eliminarFondo(' + f.id + ')">Eliminar</button></div>';
+      grid.appendChild(tarjeta);
+    });
+    var restantes = 5 - fondos.length;
+    document.getElementById('espacios-restantes').textContent = restantes > 0
+      ? 'Quedan ' + restantes + ' de 5 espacios libres'
+      : 'Ya hay 5 fondos guardados. Elimina uno para poder subir otro.';
+    document.getElementById('boton-subir-fondo').disabled = restantes <= 0;
+  });
+}
+
+function activarFondo(id) {
+  fetch('/admin/fondos/' + id + '/activar', { method: 'POST' }).then(function () {
+    cargarFondos();
+  });
+}
+
+function eliminarFondo(id) {
+  fetch('/admin/fondos/' + id, { method: 'DELETE' }).then(function () {
+    cargarFondos();
+  });
+}
+
+document.getElementById('boton-subir-fondo').addEventListener('click', function () {
+  var nombre = document.getElementById('nombre-fondo').value;
+  var archivo = document.getElementById('archivo-fondo').files[0];
+  var mensaje = document.getElementById('mensaje-fondo');
+  if (!archivo) {
+    mensaje.innerHTML = '<div class="aviso-error">Elige una imagen primero</div>';
+    return;
+  }
+  var datos = new FormData();
+  datos.append('nombre', nombre || 'Fondo sin nombre');
+  datos.append('imagen', archivo);
+  fetch('/admin/fondos', { method: 'POST', body: datos })
+    .then(function (r) { return r.json().then(function (d) { return { status: r.status, datos: d }; }); })
+    .then(function (res) {
+      if (res.status === 200) {
+        mensaje.innerHTML = '<div class="aviso-ok">Fondo subido</div>';
+        document.getElementById('nombre-fondo').value = '';
+        document.getElementById('archivo-fondo').value = '';
+        cargarFondos();
+      } else {
+        mensaje.innerHTML = '<div class="aviso-error">' + res.datos.error + '</div>';
+      }
+    });
+});
+
+let categoriasCache = [];
+
+function escapar(texto) {
+  var div = document.createElement('div');
+  div.textContent = (texto === null || texto === undefined) ? '' : texto;
+  return div.innerHTML;
+}
+
+function cargarCategorias() {
+  fetch('/admin/categorias').then(function (r) { return r.json(); }).then(function (categorias) {
+    categoriasCache = categorias;
+    document.getElementById('tabla-categorias').innerHTML = categorias.map(function (cat) {
+      return '<tr>' +
+        '<td><strong>' + escapar(cat.nombre) + '</strong></td>' +
+        '<td>' + cat.capacidad_pasajeros + '</td>' +
+        '<td>' + escapar(cat.capacidad_maletas) + '</td>' +
+        '<td>' + cat.limite_sillas + '</td>' +
+        '<td>' + Number(cat.bajada_diurna).toFixed(2) + ' € / ' + Number(cat.bajada_nocturna).toFixed(2) + ' €</td>' +
+        '<td>' +
+          (cat.tiene_foto ? '✅ ' : '— ') +
+          '<button class="boton-costa" style="margin-top:0;padding:6px 10px;font-size:0.8rem" onclick="elegirFotoCategoria(' + cat.id + ')">📷 ' + (cat.tiene_foto ? 'Cambiar' : 'Subir') + '</button>' +
+        '</td>' +
+        '<td>' +
+          '<span class="insignia ' + (cat.activa ? 'insignia-ok' : 'insignia-no') + '">' + (cat.activa ? 'ACTIVA' : 'inactiva') + '</span><br>' +
+          '<button class="' + (cat.activa ? 'boton-peligro' : 'boton-costa') + '" style="margin-top:4px;padding:6px 12px;font-size:0.8rem" onclick="alternarActiva(' + cat.id + ',' + (!cat.activa) + ')">' + (cat.activa ? 'Desactivar' : 'Activar') + '</button>' +
+        '</td>' +
+        '<td>' +
+          '<span class="insignia ' + (cat.disponible ? 'insignia-ok' : 'insignia-no') + '">' + (cat.disponible ? 'DISPONIBLE' : 'no disponible') + '</span><br>' +
+          '<button class="' + (cat.disponible ? 'boton-peligro' : 'boton-costa') + '" style="margin-top:4px;padding:6px 12px;font-size:0.8rem" onclick="alternarDisponible(' + cat.id + ',' + (!cat.disponible) + ')">' + (cat.disponible ? 'Quitar de hoy' : 'Ofrecer hoy') + '</button>' +
+        '</td>' +
+        '<td>' +
+          '<button class="boton-costa" style="padding:6px 12px;font-size:0.82rem;margin-right:6px" onclick="editarCategoria(' + cat.id + ')">✏️ Editar</button>' +
+          '<button class="boton-peligro" style="padding:6px 12px;font-size:0.82rem" onclick="eliminarCategoria(' + cat.id + ')">🗑️ Eliminar</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  });
+}
+
+function formularioCategoria(cat) {
+  return '' +
+    '<label class="etiqueta">Nombre</label>' +
+    '<input class="campo" id="cat-nombre" type="text" value="' + escapar(cat.nombre || '') + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Pasajeros (capacidad)</label>' +
+    '<input class="campo" id="cat-pasajeros" type="number" min="1" max="12" value="' + (cat.capacidad_pasajeros || 4) + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Maletas (texto libre, ej.: "3 grandes")</label>' +
+    '<input class="campo" id="cat-maletas" type="text" value="' + escapar(cat.capacidad_maletas || '') + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Sillas de bebé (máximo)</label>' +
+    '<input class="campo" id="cat-sillas" type="number" min="0" max="6" value="' + (cat.limite_sillas || 0) + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Descripción</label>' +
+    '<input class="campo" id="cat-descripcion" type="text" value="' + escapar(cat.descripcion || '') + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Bajada de bandera diurna (€, 6:00-22:00)</label>' +
+    '<input class="campo" id="cat-bajada-diurna" type="number" step="0.01" min="0" value="' + Number(cat.bajada_diurna || 0).toFixed(2) + '" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Bajada de bandera nocturna (€, 22:00-6:00)</label>' +
+    '<input class="campo" id="cat-bajada-nocturna" type="number" step="0.01" min="0" value="' + Number(cat.bajada_nocturna || 0).toFixed(2) + '" style="margin-bottom:10px">';
+}
+
+function editarCategoria(id) {
+  var cat = categoriasCache.find(function (x) { return x.id === id; });
+  if (!cat) { return; }
+  var editor = document.getElementById('editor-categoria');
+  editor.classList.remove('oculto');
+  editor.innerHTML = '<h2 style="margin-top:0">✏️ Editar categoría</h2>' + formularioCategoria(cat) +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="boton-primario" onclick="guardarCategoria(' + cat.id + ')">💾 Guardar cambios</button>' +
+      '<button class="boton-secundario" onclick="document.getElementById(\'editor-categoria\').classList.add(\'oculto\')">Cancelar</button>' +
+    '</div>';
+  editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function nuevaCategoria() {
+  var editor = document.getElementById('editor-categoria');
+  editor.classList.remove('oculto');
+  editor.innerHTML = '<h2 style="margin-top:0">➕ Nueva categoría</h2>' + formularioCategoria({}) +
+    '<p class="subtitulo" style="margin:8px 0">Nace inactiva y no disponible; actívala desde la tabla cuando esté lista.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="boton-primario" onclick="guardarCategoria(null)">💾 Crear categoría</button>' +
+      '<button class="boton-secundario" onclick="document.getElementById(\'editor-categoria\').classList.add(\'oculto\')">Cancelar</button>' +
+    '</div>';
+  editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.getElementById('boton-nueva-categoria').addEventListener('click', nuevaCategoria);
+
+function guardarCategoria(id) {
+  var datos = {
+    nombre: document.getElementById('cat-nombre').value,
+    capacidad_pasajeros: document.getElementById('cat-pasajeros').value,
+    capacidad_maletas: document.getElementById('cat-maletas').value,
+    limite_sillas: document.getElementById('cat-sillas').value,
+    descripcion: document.getElementById('cat-descripcion').value,
+    bajada_diurna: document.getElementById('cat-bajada-diurna').value,
+    bajada_nocturna: document.getElementById('cat-bajada-nocturna').value
+  };
+  var url = id ? '/admin/categorias/' + id + '/editar' : '/admin/categorias';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      document.getElementById('editor-categoria').classList.add('oculto');
+      cargarCategorias();
+      cargarPreciosGrid();
+    } else {
+      alert(respuesta.error);
+    }
+  });
+}
+
+function eliminarCategoria(id) {
+  var cat = categoriasCache.find(function (x) { return x.id === id; });
+  if (!confirm('¿Eliminar la categoría "' + (cat ? cat.nombre : '') + '"? También se borrarán los precios guardados para ella. Esta acción no se puede deshacer.')) { return; }
+  fetch('/admin/categorias/' + id + '/eliminar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (respuesta.ok) {
+        cargarCategorias();
+        cargarPreciosGrid();
+      } else {
+        alert(respuesta.error);
+      }
+    });
+}
+
+function alternarActiva(id, activa) {
+  fetch('/admin/categorias/' + id + '/activa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activa: activa })
+  }).then(function () {
+    cargarCategorias();
+    cargarPreciosGrid();
+  });
+}
+
+function alternarDisponible(id, disponible) {
+  fetch('/admin/categorias/' + id + '/disponible', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disponible: disponible })
+  }).then(function () {
+    cargarCategorias();
+  });
+}
+
+function elegirFotoCategoria(id) {
+  var entrada = document.createElement('input');
+  entrada.type = 'file';
+  entrada.accept = 'image/*';
+  entrada.onchange = function () {
+    var archivo = entrada.files && entrada.files[0];
+    if (!archivo) { return; }
+    var lector = new FileReader();
+    lector.onload = function (evento) {
+      var imagen = new Image();
+      imagen.onload = function () {
+        var continuar = function () {
+          var escala = Math.min(1, 600 / imagen.width);
+          var lienzo = document.createElement('canvas');
           lienzo.width = Math.round(imagen.width * escala);
           lienzo.height = Math.round(imagen.height * escala);
-          const ctx = lienzo.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, lienzo.width, lienzo.height);
-          ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
-          const preview = document.getElementById('ac-foto-preview');
-          preview.src = lienzo.toDataURL('image/jpeg', 0.82);
-          preview.style.display = 'block';
+          var contexto = lienzo.getContext('2d');
+          contexto.fillStyle = '#ffffff';
+          contexto.fillRect(0, 0, lienzo.width, lienzo.height);
+          contexto.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+          fetch('/admin/categorias/' + id + '/foto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ foto: lienzo.toDataURL('image/jpeg', 0.8) })
+          }).then(function (r) { return r.json(); }).then(function (respuesta) {
+            if (respuesta.ok) {
+              alert('Foto de la categoría guardada. 📷');
+              cargarCategorias();
+            } else {
+              alert(respuesta.error || 'No se pudo guardar la foto (¿demasiado grande?).');
+            }
+          });
         };
-        imagen.src = ev.target.result;
+        if (imagen.decode) {
+          imagen.decode().then(continuar).catch(continuar);
+        } else {
+          continuar();
+        }
       };
-      reader.readAsDataURL(archivo);
-    }
+      imagen.src = evento.target.result;
+    };
+    lector.readAsDataURL(archivo);
+  };
+  entrada.click();
+}
 
-    async function crearConductorAdmin() {
-      const marcaVal = document.getElementById('ac-marca').value;
-      const modeloVal = document.getElementById('ac-modelo').value;
-      const fotoPreview = document.getElementById('ac-foto-preview');
-      const datos = {
-        nombre: document.getElementById('ac-nombre').value,
-        email: document.getElementById('ac-email').value,
-        telefono: document.getElementById('ac-telefono').value,
-        password: document.getElementById('ac-password').value,
-        documento: document.getElementById('ac-documento').value,
-        direccion: document.getElementById('ac-direccion').value,
-        cp: document.getElementById('ac-cp').value,
-        municipio: document.getElementById('ac-municipio').value,
-        municipio_licencia: document.getElementById('ac-municipio-licencia').value,
-        numero_licencia: document.getElementById('ac-numero-licencia').value,
-        central_flota: document.getElementById('ac-central').value,
-        categoria_id: document.getElementById('ac-categoria').value,
-        marca_id: marcaVal === '__nueva' ? '' : marcaVal,
-        marca_nueva: marcaVal === '__nueva' ? document.getElementById('ac-marca-nueva').value : '',
-        modelo_id: modeloVal === '__nuevo' ? '' : modeloVal,
-        modelo_nuevo: modeloVal === '__nuevo' ? document.getElementById('ac-modelo-nuevo').value : '',
-        matricula: document.getElementById('ac-matricula').value,
-        numero_taxi: document.getElementById('ac-numero-taxi').value,
-        plazas: document.getElementById('ac-plazas').value,
-        isla: document.getElementById('ac-isla').value,
-        foto: fotoPreview.style.display !== 'none' ? fotoPreview.src : null
+var conductoresCache = [];
+var catalogoConductorCache = null;
+var fotoConductorNueva = null;
+
+var ETIQUETAS_FOTO_CONDUCTOR = {
+  sin_foto: '<span style="color:#5a6c79">Sin foto</span>',
+  pendiente: '<span class="insignia insignia-pendiente">FOTO PENDIENTE</span>',
+  aprobada: '<span class="insignia insignia-ok">FOTO OK</span>',
+  rechazada: '<span class="insignia insignia-suspendido">RECHAZADA</span>'
+};
+
+function cargarConductores() {
+  fetch('/admin/conductores').then(function (r) { return r.json(); }).then(function (conductores) {
+    conductoresCache = conductores;
+    var cuerpo = document.getElementById('tabla-conductores');
+    if (conductores.length === 0) {
+      cuerpo.innerHTML = '<tr><td colspan="9">Todavía no hay conductores dados de alta.</td></tr>';
+      return;
+    }
+    cuerpo.innerHTML = conductores.map(function (c) {
+      return '<tr>' +
+        '<td><strong>' + escapar(c.nombre) + '</strong></td>' +
+        '<td>' + escapar(c.email) + '<br>' + escapar(c.telefono) + '</td>' +
+        '<td>' + escapar(c.vehiculo_marca) + ' ' + escapar(c.vehiculo_modelo) + '<br>' + escapar(c.matricula) + ' · ' + c.plazas + ' plazas' + (c.numero_taxi ? ' · Nº ' + escapar(c.numero_taxi) : '') + '</td>' +
+        '<td>' + escapar(c.categoria || '—') + '</td>' +
+        '<td>' + escapar(c.isla) + '</td>' +
+        '<td>' + ETIQUETAS_FOTO_CONDUCTOR[c.foto_estado || 'sin_foto'] + '</td>' +
+        '<td><input type="checkbox" ' + (c.permite_contacto !== false ? 'checked' : '') + ' onchange="cambiarContactoConductor(' + c.id + ', this.checked)"></td>' +
+        '<td>' +
+          '<select class="campo" style="height:34px" onchange="cambiarTipoConductor(' + c.id + ', this.value)">' +
+            '<option value="externo"' + (c.tipo === 'externo' ? ' selected' : '') + '>Externo</option>' +
+            '<option value="flota"' + (c.tipo === 'flota' ? ' selected' : '') + '>Flota propia</option>' +
+          '</select>' +
+        '</td>' +
+        '<td>' +
+          '<span class="insignia ' + (c.estado === 'aprobado' ? 'insignia-ok' : (c.estado === 'suspendido' ? 'insignia-suspendido' : 'insignia-pendiente')) + '">' + c.estado.toUpperCase() + '</span>' +
+        '</td>' +
+        '<td>' +
+          '<button class="boton-costa" style="padding:6px 10px;font-size:0.8rem;margin-right:4px" onclick="verFichaConductor(' + c.id + ')">📋 Ficha</button>' +
+          '<button class="boton-secundario" style="padding:6px 10px;font-size:0.8rem;margin-right:4px" onclick="editarNombreConductor(' + c.id + ', \'' + escapar(c.nombre).replace(/'/g, "\\'") + '\')">✏️</button>' +
+          '<button class="boton-peligro" style="padding:6px 10px;font-size:0.8rem" onclick="eliminarConductor(' + c.id + ')">🗑️</button><br>' +
+          (c.estado !== 'aprobado' ? '<button class="boton-costa" style="margin-top:6px;padding:6px 12px;font-size:0.8rem" onclick="cambiarEstadoConductor(' + c.id + ', \'aprobado\')">Aprobar</button>' : '') +
+          (c.estado !== 'suspendido' ? '<button class="boton-peligro" style="margin-top:6px;padding:6px 12px;font-size:0.8rem" onclick="cambiarEstadoConductor(' + c.id + ', \'suspendido\')">Suspender</button>' : '') +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  });
+}
+
+function cambiarEstadoConductor(id, estado) {
+  fetch('/admin/conductores/' + id + '/estado', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado: estado })
+  }).then(function () { cargarConductores(); });
+}
+
+function cambiarTipoConductor(id, tipo) {
+  fetch('/admin/conductores/' + id + '/tipo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tipo: tipo })
+  });
+}
+
+function eliminarConductor(id) {
+  var c = conductoresCache.find(function (x) { return x.id === id; });
+  if (!confirm('¿Eliminar al conductor "' + (c ? c.nombre : '') + '"? Esta acción no se puede deshacer.')) { return; }
+  fetch('/admin/conductores/' + id + '/eliminar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (respuesta.ok) { cargarConductores(); } else { alert(respuesta.error); }
+    });
+}
+
+function cambiarContactoConductor(id, permite) {
+  fetch('/admin/conductores/' + id + '/contacto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ permite: permite })
+  });
+}
+
+function contactoGlobalConductores(permite) {
+  if (!confirm(permite
+    ? '¿Activar el botón de contacto para TODOS los conductores?'
+    : '¿Quitar el botón de contacto a TODOS los conductores?')) { return; }
+  fetch('/admin/conductores-contacto-global', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ permite: permite })
+  }).then(function () { cargarConductores(); });
+}
+
+function editarNombreConductor(id, actual) {
+  var nombre = prompt('Nombre correcto del conductor:', actual);
+  if (nombre === null || !nombre.trim()) { return; }
+  fetch('/admin/conductores/' + id + '/nombre', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: nombre })
+  }).then(function () { cargarConductores(); });
+}
+
+function campoFicha(etiqueta, idCampo, valor) {
+  return '<label class="etiqueta" style="margin-top:8px">' + etiqueta + '</label>' +
+    '<input class="campo" id="f-' + idCampo + '" type="text" value="' + escapar(valor == null ? '' : String(valor)) + '" style="margin-bottom:8px">';
+}
+
+function verFichaConductor(id) {
+  fetch('/admin/conductores/' + id + '/ficha').then(function (r) { return r.json(); }).then(function (c) {
+    var ficha = document.getElementById('ficha-conductor');
+    ficha.classList.remove('oculto');
+    ficha.innerHTML = '' +
+      '<h2 style="margin-top:0">📋 Expediente: ' + escapar(c.nombre) + ' <span style="font-size:0.8rem;color:#5a6c79;font-weight:400">(modifica lo que necesites y pulsa Guardar)</span></h2>' +
+      (c.foto ? '<img src="' + c.foto + '" alt="Foto" style="width:100px;height:100px;object-fit:cover;border-radius:50%;float:right;margin-left:12px;border:2px solid var(--gris-borde)">' : '') +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 16px">' +
+        campoFicha('Nombre completo', 'nombre', c.nombre) +
+        campoFicha('Documento (DNI/NIE)', 'documento', c.documento) +
+        campoFicha('Teléfono', 'telefono', c.telefono) +
+        campoFicha('Email', 'email', c.email) +
+        campoFicha('Dirección', 'direccion', c.direccion) +
+        campoFicha('Código postal', 'cp', c.cp) +
+        campoFicha('Municipio', 'municipio', c.municipio) +
+        campoFicha('Municipio de la licencia', 'municipio_licencia', c.municipio_licencia) +
+        campoFicha('Nº de licencia', 'numero_licencia', c.numero_licencia) +
+        campoFicha('Central de flota', 'central_flota', c.central_flota) +
+        campoFicha('Marca del vehículo', 'vehiculo_marca', c.vehiculo_marca) +
+        campoFicha('Modelo', 'vehiculo_modelo', c.vehiculo_modelo) +
+        campoFicha('Matrícula', 'matricula', c.matricula) +
+        campoFicha('Nº de taxi', 'numero_taxi', c.numero_taxi) +
+        campoFicha('Plazas', 'plazas', c.plazas) +
+        campoFicha('Isla', 'isla', c.isla) +
+      '</div>' +
+      '<p style="margin-top:4px;font-size:13px">' +
+        '<strong>Categoría:</strong> ' + escapar(c.categoria || '—') + ' · ' +
+        '<strong>Foto de carné:</strong> ' + ETIQUETAS_FOTO_CONDUCTOR[c.foto_estado || 'sin_foto'] +
+        (c.foto_motivo ? '<br><em>Motivo del rechazo: ' + escapar(c.foto_motivo) + '</em>' : '') +
+      '</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+        '<button class="boton-primario" onclick="guardarFichaConductor(' + c.id + ')">💾 Guardar cambios</button>' +
+        ((c.foto_estado === 'pendiente' || c.foto_estado === 'rechazada') ? '<button class="boton-costa" onclick="decidirFotoConductor(' + c.id + ', \'aprobar\')">✅ Aprobar foto</button>' : '') +
+        ((c.foto_estado === 'pendiente' || c.foto_estado === 'aprobada') ? '<button class="boton-peligro" onclick="decidirFotoConductor(' + c.id + ', \'rechazar\')">❌ Rechazar foto</button>' : '') +
+        '<button class="boton-secundario" onclick="document.getElementById(\'ficha-conductor\').classList.add(\'oculto\')">Cerrar ficha</button>' +
+      '</div>';
+    ficha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function guardarFichaConductor(id) {
+  var campos = ['nombre', 'documento', 'telefono', 'email', 'direccion', 'cp', 'municipio', 'municipio_licencia',
+    'numero_licencia', 'central_flota', 'vehiculo_marca', 'vehiculo_modelo', 'matricula', 'numero_taxi', 'plazas', 'isla'];
+  var datos = {};
+  campos.forEach(function (campo) { datos[campo] = document.getElementById('f-' + campo).value; });
+  fetch('/admin/conductores/' + id + '/editar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      alert('Ficha guardada. ✓');
+      cargarConductores();
+      verFichaConductor(id);
+    } else {
+      alert(respuesta.error);
+    }
+  });
+}
+
+function decidirFotoConductor(id, accion) {
+  var motivo = null;
+  if (accion === 'rechazar') {
+    motivo = prompt('Motivo del rechazo (el conductor lo verá):', 'La foto no es clara o no es de tipo carné.');
+    if (motivo === null) { return; }
+  }
+  fetch('/admin/conductores/' + id + '/foto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accion: accion, motivo: motivo })
+  }).then(function () {
+    cargarConductores();
+    verFichaConductor(id);
+  });
+}
+
+function formularioConductor() {
+  var opcionesCategoria = catalogoConductorCache.categorias.map(function (cat) {
+    return '<option value="' + cat.id + '">' + escapar(cat.nombre) + '</option>';
+  }).join('');
+  var opcionesMarca = catalogoConductorCache.marcas.map(function (m) {
+    return '<option value="' + m.id + '">' + escapar(m.nombre) + '</option>';
+  }).join('');
+  return '' +
+    '<label class="etiqueta">Nombre completo</label><input class="campo" id="ac-nombre" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Email (será su usuario)</label><input class="campo" id="ac-email" type="email" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Teléfono</label><input class="campo" id="ac-telefono" type="tel" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Contraseña provisional (mínimo 6 caracteres)</label><input class="campo" id="ac-password" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Documento de identidad (DNI/NIE)</label><input class="campo" id="ac-documento" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Dirección</label><input class="campo" id="ac-direccion" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Código postal</label><input class="campo" id="ac-cp" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Municipio de residencia</label><input class="campo" id="ac-municipio" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Municipio de la licencia</label><input class="campo" id="ac-municipio-licencia" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Número de licencia</label><input class="campo" id="ac-numero-licencia" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Central de flota (opcional)</label><input class="campo" id="ac-central" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Categoría del vehículo</label><select class="campo" id="ac-categoria" style="margin-bottom:10px">' + opcionesCategoria + '</select>' +
+    '<label class="etiqueta">Marca</label>' +
+    '<select class="campo" id="ac-marca" onchange="cargarModelosConductor()" style="margin-bottom:10px"><option value="">Selecciona marca…</option>' + opcionesMarca + '<option value="__nueva">➕ Otra marca</option></select>' +
+    '<div id="ac-marca-nueva-caja" class="oculto"><label class="etiqueta">Nueva marca</label><input class="campo" id="ac-marca-nueva" type="text" style="margin-bottom:10px"></div>' +
+    '<label class="etiqueta">Modelo</label>' +
+    '<select class="campo" id="ac-modelo" style="margin-bottom:10px"><option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option></select>' +
+    '<div id="ac-modelo-nuevo-caja" class="oculto"><label class="etiqueta">Nuevo modelo</label><input class="campo" id="ac-modelo-nuevo" type="text" style="margin-bottom:10px"></div>' +
+    '<label class="etiqueta">Matrícula</label><input class="campo" id="ac-matricula" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Número de taxi (opcional)</label><input class="campo" id="ac-numero-taxi" type="text" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Plazas</label><input class="campo" id="ac-plazas" type="number" min="1" max="12" value="4" style="margin-bottom:10px">' +
+    '<label class="etiqueta">Isla</label><select class="campo" id="ac-isla" style="margin-bottom:10px">' +
+      '<option>Gran Canaria</option><option>Tenerife</option><option>Lanzarote</option>' +
+      '<option>Fuerteventura</option><option>La Palma</option><option>La Gomera</option><option>El Hierro</option>' +
+    '</select>' +
+    '<label class="etiqueta">Foto del conductor (opcional, queda aprobada al subirla aquí)</label>' +
+    '<input class="campo" type="file" id="ac-foto-input" accept="image/*" onchange="previsualizarFotoConductor()" style="margin-bottom:10px">' +
+    '<img id="ac-foto-preview" style="max-width:160px;border-radius:8px;margin-bottom:10px;display:none">';
+}
+
+function mostrarFormularioConductor() {
+  var editor = document.getElementById('editor-conductor');
+  function pintar() {
+    fotoConductorNueva = null;
+    editor.classList.remove('oculto');
+    editor.innerHTML = '<h2 style="margin-top:0">➕ Dar de alta un conductor</h2>' +
+      '<p class="subtitulo" style="margin:0 0 12px">Pasa por la oficina con su documentación. La foto se sube desde aquí y queda aprobada directamente.</p>' +
+      formularioConductor() +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
+        '<button class="boton-primario" onclick="guardarConductor()">💾 Crear conductor</button>' +
+        '<button class="boton-secundario" onclick="document.getElementById(\'editor-conductor\').classList.add(\'oculto\')">Cancelar</button>' +
+      '</div>' +
+      '<div id="ac-mensaje" style="margin-top:10px;"></div>';
+    editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (catalogoConductorCache) { pintar(); return; }
+  fetch('/admin/catalogo-vehiculos').then(function (r) { return r.json(); }).then(function (datos) {
+    catalogoConductorCache = datos;
+    pintar();
+  });
+}
+
+document.getElementById('boton-nuevo-conductor').addEventListener('click', mostrarFormularioConductor);
+
+function cargarModelosConductor() {
+  var marcaSelect = document.getElementById('ac-marca');
+  var marcaId = parseInt(marcaSelect.value, 10);
+  var esNueva = marcaSelect.value === '__nueva';
+  document.getElementById('ac-marca-nueva-caja').classList.toggle('oculto', !esNueva);
+  var selModelo = document.getElementById('ac-modelo');
+  selModelo.innerHTML = '<option value="">Selecciona modelo…</option><option value="__nuevo">➕ Otro modelo</option>';
+  document.getElementById('ac-modelo-nuevo-caja').classList.add('oculto');
+  if (!catalogoConductorCache || !marcaId) { return; }
+  var marca = catalogoConductorCache.marcas.find(function (m) { return m.id === marcaId; });
+  if (!marca) { return; }
+  marca.modelos.forEach(function (mo) {
+    var opt = document.createElement('option');
+    opt.value = mo.id;
+    opt.textContent = mo.nombre;
+    selModelo.insertBefore(opt, selModelo.lastElementChild);
+  });
+}
+
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'ac-modelo') {
+    document.getElementById('ac-modelo-nuevo-caja').classList.toggle('oculto', e.target.value !== '__nuevo');
+  }
+});
+
+function previsualizarFotoConductor() {
+  var archivo = document.getElementById('ac-foto-input').files[0];
+  if (!archivo) { return; }
+  var lector = new FileReader();
+  lector.onload = function (evento) {
+    var imagen = new Image();
+    imagen.onload = function () {
+      var continuar = function () {
+        var escala = Math.min(1, 500 / imagen.width);
+        var lienzo = document.createElement('canvas');
+        lienzo.width = Math.round(imagen.width * escala);
+        lienzo.height = Math.round(imagen.height * escala);
+        var contexto = lienzo.getContext('2d');
+        contexto.fillStyle = '#ffffff';
+        contexto.fillRect(0, 0, lienzo.width, lienzo.height);
+        contexto.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+        fotoConductorNueva = lienzo.toDataURL('image/jpeg', 0.82);
+        var preview = document.getElementById('ac-foto-preview');
+        preview.src = fotoConductorNueva;
+        preview.style.display = 'block';
       };
-      const msg = document.getElementById('ac-mensaje');
-      const r = await fetch('/api/admin/conductores/crear', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos)
+      if (imagen.decode) { imagen.decode().then(continuar).catch(continuar); } else { continuar(); }
+    };
+    imagen.src = evento.target.result;
+  };
+  lector.readAsDataURL(archivo);
+}
+
+function guardarConductor() {
+  var marcaVal = document.getElementById('ac-marca').value;
+  var modeloVal = document.getElementById('ac-modelo').value;
+  var datos = {
+    nombre: document.getElementById('ac-nombre').value,
+    email: document.getElementById('ac-email').value,
+    telefono: document.getElementById('ac-telefono').value,
+    password: document.getElementById('ac-password').value,
+    documento: document.getElementById('ac-documento').value,
+    direccion: document.getElementById('ac-direccion').value,
+    cp: document.getElementById('ac-cp').value,
+    municipio: document.getElementById('ac-municipio').value,
+    municipio_licencia: document.getElementById('ac-municipio-licencia').value,
+    numero_licencia: document.getElementById('ac-numero-licencia').value,
+    central_flota: document.getElementById('ac-central').value,
+    categoria_id: document.getElementById('ac-categoria').value,
+    marca_id: marcaVal === '__nueva' ? '' : marcaVal,
+    marca_nueva: marcaVal === '__nueva' ? document.getElementById('ac-marca-nueva').value : '',
+    modelo_id: modeloVal === '__nuevo' ? '' : modeloVal,
+    modelo_nuevo: modeloVal === '__nuevo' ? document.getElementById('ac-modelo-nuevo').value : '',
+    matricula: document.getElementById('ac-matricula').value,
+    numero_taxi: document.getElementById('ac-numero-taxi').value,
+    plazas: document.getElementById('ac-plazas').value,
+    isla: document.getElementById('ac-isla').value,
+    foto: fotoConductorNueva
+  };
+  var msg = document.getElementById('ac-mensaje');
+  fetch('/admin/conductores', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Conductor creado y aprobado.</div>';
+      cargarConductores();
+      setTimeout(function () { document.getElementById('editor-conductor').classList.add('oculto'); }, 1200);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + respuesta.error + '</div>';
+    }
+  });
+}
+
+
+function mostrarErrorRutas(msg) {
+  var el = document.getElementById('error-rutas');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+document.getElementById('boton-add-ruta').addEventListener('click', function () {
+  var origen = document.getElementById('ruta-origen').value;
+  var destino = document.getElementById('ruta-destino').value;
+  mostrarErrorRutas('');
+  if (!origen || !destino) { mostrarErrorRutas('Selecciona un origen y un destino.'); return; }
+  if (origen === destino) { mostrarErrorRutas('El origen y el destino no pueden ser el mismo.'); return; }
+  fetch('/admin/rutas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ origen: origen, destino: destino })
+  }).then(function (r) { return r.json(); }).then(function (data) {
+    if (data.error) { mostrarErrorRutas(data.error); return; }
+    cargarPreciosGrid();
+  });
+});
+
+var precioGridDatos = null;
+
+function cargarPreciosGrid() {
+  // Cargar destinos activos en los selectores de la cabecera
+  fetch('/admin/destinos').then(function (r) { return r.json(); }).then(function (data) {
+    var destinos = (data.destinos || []).filter(function (d) { return d.activo; });
+    var opcionVacia = '<option value="">— Selecciona —</option>';
+    var opciones = destinos.map(function (d) {
+      return '<option value="' + d.nombre + '">' + d.nombre + '</option>';
+    }).join('');
+    document.getElementById('ruta-origen').innerHTML = opcionVacia + opciones;
+    document.getElementById('ruta-destino').innerHTML = opcionVacia + opciones;
+  });
+
+  // Cargar la cuadrícula de precios con todas las rutas (activas e inactivas)
+  fetch('/admin/precios-grid').then(function (r) { return r.json(); }).then(function (datos) {
+    precioGridDatos = datos;
+    var contenedor = document.getElementById('tabla-precios-contenedor');
+    if (datos.rutas.length === 0 || datos.categorias.length === 0) {
+      contenedor.innerHTML = '<p style="font-size:13px;color:var(--texto-muted);">Añade al menos una ruta y una categoría activa para fijar precios.</p>';
+      return;
+    }
+    var mapaPrecios = {};
+    datos.precios.forEach(function (p) {
+      mapaPrecios[p.ruta_id + '-' + p.categoria_id] = p.precio;
+    });
+    var html = '<table class="tabla-precios"><thead><tr><th>Ruta</th>';
+    datos.categorias.forEach(function (c) {
+      html += '<th>' + c.nombre + '</th>';
+    });
+    html += '<th>Acciones</th></tr></thead><tbody>';
+    datos.rutas.forEach(function (r) {
+      var esActiva = r.activa !== false;
+      var estiloFila = esActiva ? '' : 'opacity:0.5;';
+      html += '<tr style="' + estiloFila + '">';
+      html += '<td>' + r.origen + ' → ' + r.destino + (esActiva ? '' : ' <span style="color:#aaa;font-size:11px;">(inactiva)</span>') + '</td>';
+      datos.categorias.forEach(function (c) {
+        var clave = r.id + '-' + c.id;
+        var valor = mapaPrecios[clave] !== undefined ? mapaPrecios[clave] : '';
+        html += '<td><input type="number" step="0.01" min="0" data-ruta="' + r.id + '" data-categoria="' + c.id + '" value="' + valor + '" ' + (esActiva ? '' : 'disabled') + '></td>';
       });
-      const respuesta = await r.json();
-      if (respuesta.ok) {
-        msg.textContent = '✅ Conductor creado y aprobado.';
-        msg.className = 'mensaje exito';
-        setTimeout(() => {
-          document.getElementById('formulario-conductor-admin').classList.add('oculto');
-          msg.textContent = '';
-        }, 2000);
-        cargarConductores();
+      html += '<td style="white-space:nowrap;">';
+      if (esActiva) {
+        html += '<button class="boton-peligro" style="font-size:0.78rem;padding:0.25rem 0.6rem;margin-right:4px;" onclick="desactivarRuta(' + r.id + ', \'' + (r.origen + ' → ' + r.destino).replace(/'/g, "\\'") + '\')">⏸ Desactivar</button>';
       } else {
-        msg.textContent = respuesta.error;
-        msg.className = 'mensaje error';
+        html += '<button class="boton-costa" style="font-size:0.78rem;padding:0.25rem 0.6rem;margin-right:4px;" onclick="activarRuta(' + r.id + ')">▶ Activar</button>';
       }
-    }
+      html += '<button class="boton-peligro" style="font-size:0.78rem;padding:0.25rem 0.6rem;" onclick="eliminarRuta(' + r.id + ', \'' + (r.origen + ' → ' + r.destino).replace(/'/g, "\\'") + '\')">🗑 Eliminar</button>';
+      html += '</td></tr>';
+    });
+    html += '</tbody></table>';
+    contenedor.innerHTML = html;
+  });
+}
 
-    async function cargarConductores() {
-      const r = await fetch('/api/admin/conductores');
-      const { conductores } = await r.json();
-      const cuerpo = document.getElementById('tabla-conductores');
-      if (conductores.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="11">Todavía no hay conductores registrados.</td></tr>';
+function desactivarRuta(id, nombre) {
+  if (!confirm('¿Desactivar la ruta "' + nombre + '"?\n\nDesaparecerá de la web y del sitemap. Podrás reactivarla cuando quieras.')) return;
+  fetch('/admin/rutas/' + id + '/desactivar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function () { cargarPreciosGrid(); });
+}
+
+function activarRuta(id) {
+  fetch('/admin/rutas/' + id + '/activar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function () { cargarPreciosGrid(); });
+}
+
+function eliminarRuta(id, nombre) {
+  if (!confirm('¿ELIMINAR la ruta "' + nombre + '"?\n\nSe borrarán también sus precios y sus fichas SEO. Se crearán redirecciones 301 automáticas para que Google no encuentre páginas rotas.\n\nEsta acción no se puede deshacer.')) return;
+  fetch('/admin/rutas/' + id + '/eliminar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { alert(data.error); return; }
+      cargarPreciosGrid();
+    });
+}
+
+document.getElementById('boton-guardar-precios').addEventListener('click', function () {
+  var inputs = document.querySelectorAll('#tabla-precios-contenedor input');
+  var cambios = [];
+  inputs.forEach(function (input) {
+    if (input.value !== '') {
+      cambios.push({
+        ruta_id: Number(input.dataset.ruta),
+        categoria_id: Number(input.dataset.categoria),
+        precio: Number(input.value)
+      });
+    }
+  });
+  fetch('/admin/precios-grid', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cambios: cambios })
+  }).then(function () {
+    document.getElementById('mensaje-precios').innerHTML = '<div class="aviso-ok">Precios guardados</div>';
+  });
+});
+
+
+
+// ─── SEO ──────────────────────────────────────────────────────────────────────
+var IDIOMAS_SEO = [];          // se rellena en tiempo real desde /admin/idiomas
+var SECCIONES_TRASLADO_JS = {}; // idem
+var seoCache = null;
+
+// Carga la lista de idiomas activos de la web desde la base de datos y
+// rellena todas las variables compartidas (IDIOMAS_SEO, IDIOMAS_TEXTOS,
+// SECCIONES_TRASLADO_JS, NOMBRES_IDIOMA). Se llama cada vez que se entra en
+// la pestaña SEO o Idiomas, así que un idioma añadido aparece al instante,
+// sin tener que recargar la página ni tocar código.
+function cargarListaIdiomasDinamica() {
+  return fetch('/admin/idiomas').then(function (r) { return r.json(); }).then(function (idiomas) {
+    var activos = idiomas.filter(function (i) { return i.activo; });
+    IDIOMAS_SEO = activos.map(function (i) { return i.codigo; });
+    IDIOMAS_TEXTOS = activos.filter(function (i) { return !i.es_base; }).map(function (i) { return i.codigo; });
+    SECCIONES_TRASLADO_JS = {};
+    NOMBRES_IDIOMA = {};
+    activos.forEach(function (i) {
+      SECCIONES_TRASLADO_JS[i.codigo] = i.palabra_traslado;
+      NOMBRES_IDIOMA[i.codigo] = i.nombre;
+    });
+  });
+}
+
+function renderizarCabeceraSEO() {
+  var thead = document.getElementById('thead-seo');
+  if (!thead) return;
+  thead.innerHTML = '<tr><th>Ruta</th>' +
+    IDIOMAS_SEO.map(function (l) { return '<th style="text-align:center">' + l.toUpperCase() + '</th>'; }).join('') +
+    '<th>Acción</th></tr>';
+}
+
+function cargarSEO() {
+  document.getElementById('tabla-seo-cuerpo').innerHTML = '<tr><td colspan="10" style="color:var(--texto-muted)">Cargando...</td></tr>';
+  cargarListaIdiomasDinamica().then(function () {
+    renderizarCabeceraSEO();
+    renderizarSelectIASEO();
+    return fetch('/admin/seo/rutas');
+  }).then(function (r) { return r.json(); }).then(function (datos) {
+    seoCache = datos;
+    renderizarTablaSEO(datos);
+  });
+}
+
+function renderizarSelectIASEO() {
+  var select = document.getElementById('select-idioma-ia-seo');
+  if (!select) return;
+  select.innerHTML = IDIOMAS_TEXTOS.map(function (l) {
+    return '<option value="' + l + '">' + (NOMBRES_IDIOMA[l] || l.toUpperCase()) + '</option>';
+  }).join('');
+}
+
+function badgeSEO(langData) {
+  if (!langData) return '<span class="estado-seo-vacio">—</span>';
+  if (langData.activo) return '<span class="estado-seo-ok">✓</span>';
+  if (langData.titulo) return '<span class="estado-seo-draft">✎</span>';
+  return '<span class="estado-seo-vacio">·</span>';
+}
+
+function renderizarTablaSEO(datos) {
+  var cuerpo = document.getElementById('tabla-seo-cuerpo');
+  if (!datos.rutas || datos.rutas.length === 0) {
+    cuerpo.innerHTML = '<tr><td colspan="10">No hay rutas cargadas todavía. Añádelas en "Rutas y precios".</td></tr>';
+    return;
+  }
+  cuerpo.innerHTML = datos.rutas.map(function (ruta) {
+    var seoRuta = datos.seo[ruta.id] || {};
+    var celdas = IDIOMAS_SEO.map(function (lang) {
+      return '<td style="text-align:center">' + badgeSEO(seoRuta[lang]) + '</td>';
+    }).join('');
+    return '<tr>' +
+      '<td><strong>' + escapar(ruta.origen) + ' → ' + escapar(ruta.destino) + '</strong></td>' +
+      celdas +
+      '<td><button class="boton-costa" style="padding:6px 10px;font-size:0.8rem" onclick="abrirEditorSEO(' + ruta.id + ')">✏️ Editar</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+var editorSEOCache = {}; // rutaId -> { lang: {..., excede} }
+
+function abrirEditorSEO(rutaId) {
+  var ruta = seoCache && seoCache.rutas.find(function (r) { return r.id === rutaId; });
+  if (!ruta) return;
+
+  var editor = document.getElementById('editor-seo');
+  editor.classList.remove('oculto');
+  editor.innerHTML = '<p style="color:var(--texto-muted)">Cargando los 9 idiomas...</p>';
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/admin/seo/rutas/' + rutaId + '/completo')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      var porIdioma = datos.idiomas;
+      var infoRuta = datos.ruta;
+      editorSEOCache[rutaId] = porIdioma;
+
+      var tabs = IDIOMAS_SEO.map(function (lang, i) {
+        var excede = porIdioma[lang] && porIdioma[lang].excede;
+        var clases = 'tab-idioma' + (i === 0 ? ' activo' : '') + (excede ? ' tab-idioma-rojo' : '');
+        return '<button class="' + clases + '" id="tab-idioma-' + lang + '" ' +
+          'onclick="cambiarIdiomaEditorSEO(' + rutaId + ', \'' + lang + '\', this)" ' +
+          'title="' + (excede ? 'Título o descripción pasados de píxeles' : '') + '">' +
+          lang.toUpperCase() + (excede ? ' ⚠️' : '') + '</button>';
+      }).join('');
+
+      var prioridadActual = infoRuta.sitemap_prioridad != null ? Number(infoRuta.sitemap_prioridad) : 0.8;
+      var frecuenciaActual = infoRuta.sitemap_frecuencia || 'monthly';
+
+      function opcionesPrioridad() {
+        var niveles = [[1.0, 'Alta (1.0)'], [0.8, 'Media (0.8)'], [0.5, 'Baja (0.5)']];
+        return niveles.map(function (n) {
+          return '<option value="' + n[0] + '"' + (n[0] === prioridadActual ? ' selected' : '') + '>' + n[1] + '</option>';
+        }).join('');
+      }
+      function opcionesFrecuencia() {
+        var freqs = [['daily', 'Diaria'], ['weekly', 'Semanal'], ['monthly', 'Mensual'], ['yearly', 'Anual']];
+        return freqs.map(function (f) {
+          return '<option value="' + f[0] + '"' + (f[0] === frecuenciaActual ? ' selected' : '') + '>' + f[1] + '</option>';
+        }).join('');
+      }
+
+      editor.innerHTML =
+        '<h2 style="margin-top:0">✏️ SEO: ' + escapar(ruta.origen) + ' → ' + escapar(ruta.destino) + '</h2>' +
+
+        '<div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;background:var(--gris-fondo);padding:12px 14px;border-radius:8px;margin-bottom:18px;">' +
+        '<div><label class="etiqueta" style="font-size:11px;">Prioridad en el sitemap</label>' +
+        '<select id="sitemap-prioridad" class="campo" style="height:32px;">' + opcionesPrioridad() + '</select></div>' +
+        '<div><label class="etiqueta" style="font-size:11px;">Frecuencia de actualización</label>' +
+        '<select id="sitemap-frecuencia" class="campo" style="height:32px;">' + opcionesFrecuencia() + '</select></div>' +
+        '<button class="boton-costa" style="padding:7px 14px;font-size:0.82rem;" onclick="guardarSitemapConfig(' + rutaId + ')">Guardar</button>' +
+        '<span id="sitemap-config-msg" style="font-size:12px;"></span>' +
+        '</div>' +
+
+        '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--gris-fondo);padding:12px 14px;border-radius:8px;margin-bottom:18px;">' +
+        '<div id="imagen-og-preview" style="width:90px;height:48px;border-radius:6px;overflow:hidden;background:var(--charcoal);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+        (infoRuta.tiene_imagen
+          ? '<img src="/ruta-imagen/' + rutaId + '?t=' + Date.now() + '" style="width:100%;height:100%;object-fit:cover;">'
+          : '<span style="color:white;font-size:10px;opacity:0.6;">sin imagen</span>') +
+        '</div>' +
+        '<div>' +
+        '<label class="etiqueta" style="font-size:11px;">Imagen para WhatsApp/redes (1200×630 recomendado)</label>' +
+        '<input type="file" id="imagen-og-input" accept="image/*" onchange="subirImagenOG(' + rutaId + ')">' +
+        '</div>' +
+        (infoRuta.tiene_imagen
+          ? '<button class="boton-peligro" style="padding:6px 12px;font-size:0.78rem;" onclick="eliminarImagenOG(' + rutaId + ')">🗑️ Quitar</button>'
+          : '') +
+        '<span id="imagen-og-msg" style="font-size:12px;"></span>' +
+        '</div>' +
+
+        '<div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;">' + tabs + '</div>' +
+        '<div id="seo-campos-editor"></div>' +
+        '<div id="seo-mensaje-editor" style="margin-top:8px;"></div>' +
+        '<button class="boton-secundario" style="margin-top:10px;" onclick="document.getElementById(\'editor-seo\').classList.add(\'oculto\')">Cerrar</button>';
+
+      cambiarIdiomaEditorSEO(rutaId, 'es', editor.querySelector('.tab-idioma'));
+    });
+}
+
+function guardarSitemapConfig(rutaId) {
+  var prioridad = document.getElementById('sitemap-prioridad').value;
+  var frecuencia = document.getElementById('sitemap-frecuencia').value;
+  var msg = document.getElementById('sitemap-config-msg');
+  fetch('/admin/rutas/' + rutaId + '/sitemap-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prioridad: prioridad, frecuencia: frecuencia })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    msg.innerHTML = respuesta.ok
+      ? '<span style="color:#2e7d32;">✓ Guardado</span>'
+      : '<span style="color:var(--rojo-error);">' + escapar(respuesta.error || 'Error') + '</span>';
+    setTimeout(function () { msg.innerHTML = ''; }, 2500);
+  });
+}
+
+// Comprime y redimensiona la imagen a 1200×630 (tamaño recomendado para
+// vistas previas de WhatsApp/Facebook) antes de subirla, para que pese poco.
+function comprimirImagenOG(file, callback) {
+  var lector = new FileReader();
+  lector.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      var ANCHO = 1200, ALTO = 630;
+      var canvas = document.createElement('canvas');
+      canvas.width = ANCHO;
+      canvas.height = ALTO;
+      var ctx = canvas.getContext('2d');
+
+      // Recorte centrado tipo "cover", para no deformar la imagen
+      var escala = Math.max(ANCHO / img.width, ALTO / img.height);
+      var w = img.width * escala, h = img.height * escala;
+      var x = (ANCHO - w) / 2, y = (ALTO - h) / 2;
+      ctx.drawImage(img, x, y, w, h);
+
+      callback(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = e.target.result;
+  };
+  lector.readAsDataURL(file);
+}
+
+function subirImagenOG(rutaId) {
+  var input = document.getElementById('imagen-og-input');
+  var file = input.files[0];
+  if (!file) return;
+  var msg = document.getElementById('imagen-og-msg');
+  msg.innerHTML = 'Procesando imagen...';
+
+  comprimirImagenOG(file, function (dataUrl) {
+    fetch('/admin/rutas/' + rutaId + '/imagen-og', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imagen: dataUrl })
+    }).then(function (r) { return r.json(); }).then(function (respuesta) {
+      if (respuesta.ok) {
+        msg.innerHTML = '<span style="color:#2e7d32;">✓ Imagen guardada</span>';
+        setTimeout(function () { abrirEditorSEO(rutaId); }, 800);
+      } else {
+        msg.innerHTML = '<span style="color:var(--rojo-error);">' + escapar(respuesta.error || 'Error') + '</span>';
+      }
+    });
+  });
+}
+
+function eliminarImagenOG(rutaId) {
+  fetch('/admin/rutas/' + rutaId + '/imagen-og/eliminar', { method: 'POST' })
+    .then(function () { abrirEditorSEO(rutaId); });
+}
+
+function cambiarIdiomaEditorSEO(rutaId, lang, botonTab) {
+  document.querySelectorAll('.tab-idioma').forEach(function (b) { b.classList.remove('activo'); });
+  if (botonTab) botonTab.classList.add('activo');
+
+  fetch('/admin/seo/rutas/' + rutaId + '/idioma/' + lang)
+    .then(function (r) { return r.json(); })
+    .then(function (datos) { renderizarCamposSEO(rutaId, lang, datos); });
+}
+
+// Mide el ancho real en píxeles de un texto, usando la misma tipografía
+// y tamaño que Google usa al mostrar los resultados de búsqueda
+// (Arial, 20px para el título y 13px para la descripción).
+var canvasMedidor = document.createElement('canvas');
+var ctxMedidor = canvasMedidor.getContext('2d');
+
+function medirPx(texto, fuente) {
+  ctxMedidor.font = fuente;
+  return Math.round(ctxMedidor.measureText(texto || '').width);
+}
+
+function contarPxSEO(input, idContador, maxPx, fuente) {
+  var px = medirPx(input.value, fuente);
+  var el = document.getElementById(idContador);
+  if (!el) return;
+  var color = px > maxPx ? 'var(--rojo-error)' : (px > maxPx * 0.92 ? '#b8860b' : 'var(--texto-muted)');
+  el.style.color = color;
+  el.textContent = px + ' / ' + maxPx + ' px';
+}
+
+function verSchemaRuta(rutaId, lang) {
+  var caja = document.getElementById('schema-ruta-vista');
+  if (!caja) return;
+  caja.innerHTML = '<p style="color:var(--texto-muted);font-size:13px;">Cargando...</p>';
+
+  fetch('/admin/seo/rutas/' + rutaId + '/idioma/' + lang + '/schema')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      if (!datos.schemaTaxiService) {
+        caja.innerHTML = '<div class="aviso-error">' + escapar(datos.error || 'No se pudo cargar.') + '</div>';
         return;
       }
-      cuerpo.innerHTML = conductores.map(c => `
-        <tr>
-          <td>${escapar(c.nombre)}</td>
-          <td>${escapar(c.email)}<br>${escapar(c.telefono)}</td>
-          <td>${escapar(c.vehiculo_marca)} ${escapar(c.vehiculo_modelo)}<br>${escapar(c.matricula)} · ${c.plazas} plazas · Nº taxi: ${escapar(c.numero_taxi || '—')}</td>
-          <td>${escapar(c.categoria || '—')}</td>
-          <td>${escapar(c.isla)}</td>
-          <td>${ETIQUETAS_FOTO[c.foto_estado || 'sin_foto']}</td>
-          <td>${c.media_estrellas ? '<span class="estrellas-ambar">★</span> <strong>' + c.media_estrellas + '</strong> <span style="color:#5a6c79">(' + c.total_valoraciones + ')</span>' : '<span style="color:#5a6c79">Sin valorar</span>'}</td>
-          <td><label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400"><input type="checkbox" style="width:auto" ${c.permite_contacto !== false ? 'checked' : ''} onchange="cambiarContacto(${c.id}, this.checked)"> permitido</label></td>
-          <td>
-            <select onchange="cambiarTipo(${c.id}, this.value)">
-              <option value="externo" ${c.tipo === 'externo' ? 'selected' : ''}>Externo</option>
-              <option value="flota" ${c.tipo === 'flota' ? 'selected' : ''}>Flota propia</option>
-            </select>
-          </td>
-          <td><span class="etiqueta ${c.estado}">${c.estado}</span></td>
-          <td>
-            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="verFicha(${c.id})">📋 Ficha</button>
-            <button class="secundario" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="editarNombreConductor(${c.id}, '${escapar(c.nombre).replace(/'/g, "\\'")}')">✏️</button>
-            <button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="eliminarConductor(${c.id}, '${escapar(c.nombre).replace(/'/g, "\\'")}')">🗑</button>
-            ${c.estado !== 'aprobado' ? `<button style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'aprobado')">Aprobar</button>` : ''}
-            ${c.estado !== 'suspendido' ? `<button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem" onclick="cambiarEstado(${c.id}, 'suspendido')">Suspender</button>` : ''}
-          </td>
-        </tr>
-      `).join('');
-    }
+      var jsonBonito = JSON.stringify({ TaxiService: datos.schemaTaxiService, BreadcrumbList: datos.schemaBreadcrumb }, null, 2);
 
-    async function cambiarEstado(id, estado) {
-      await fetch('/api/admin/conductores/' + id + '/estado', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado })
-      });
-      await Promise.all([cargarResumen(), cargarConductores()]);
-    }
+      caja.innerHTML =
+        '<div style="background:var(--gris-fondo);border-radius:8px;padding:12px 14px;">' +
+        '<p style="font-size:12px;color:var(--texto-muted);margin:0 0 8px;">' +
+        (datos.activo
+          ? '🟢 Esto es lo que ve Google ahora mismo en <code>' + escapar(datos.url) + '</code>'
+          : '⚪ Esta página está desactivada — esto es lo que se vería si la activas') +
+        '</p>' +
+        '<pre style="background:#1c1815;color:#d4d4d4;padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;max-height:340px;font-family:\'JetBrains Mono\',monospace;">' +
+        escapar(jsonBonito) + '</pre>' +
+        '<button class="boton-secundario" style="margin-top:8px;padding:5px 12px;font-size:0.78rem;" onclick="document.getElementById(\'schema-ruta-vista\').innerHTML=\'\'">Cerrar</button>' +
+        '</div>';
+    });
+}
 
-    async function cambiarTipo(id, tipo) {
-      await fetch('/api/admin/conductores/' + id + '/tipo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo })
-      });
-    }
+function copiarEnlacePublico(lang, slug, boton) {
+  var seccion = SECCIONES_TRASLADO_JS[lang] || 'traslado';
+  var url = window.location.origin + '/' + lang + '/' + seccion + '/' + slug;
 
-    async function cargarPasajeros() {
-      const r = await fetch('/api/admin/pasajeros');
-      const { pasajeros } = await r.json();
-      const cuerpo = document.getElementById('tabla-pasajeros');
-      if (pasajeros.length === 0) {
-        cuerpo.innerHTML = '<tr><td colspan="6">Todavía no hay pasajeros registrados.</td></tr>';
+  navigator.clipboard.writeText(url).then(function () {
+    var textoOriginal = boton.textContent;
+    boton.textContent = '✓ ¡Copiado!';
+    setTimeout(function () { boton.textContent = textoOriginal; }, 1800);
+  }).catch(function () {
+    prompt('Copia el enlace manualmente:', url);
+  });
+}
+
+function renderizarCamposSEO(rutaId, lang, datos) {
+  var activo = datos.activo || false;
+  var slug    = escapar(datos.slug_url || '');
+  var titulo  = escapar(datos.meta_title || '');
+  var desc    = datos.meta_description || '';
+  var campos  = document.getElementById('seo-campos-editor');
+
+  campos.innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--gris-fondo);border-radius:8px;margin-bottom:16px;flex-wrap:wrap;">' +
+      '<span style="font-size:14px;">' + (activo
+        ? '🟢 Esta página <strong>está activa</strong> en internet'
+        : '⚪ Esta página <strong>está desactivada</strong>') + '</span>' +
+      '<button class="' + (activo ? 'boton-peligro' : 'boton-costa') + '" style="padding:6px 14px;font-size:0.82rem;" ' +
+        'onclick="toggleActivarSEO(' + rutaId + ', \'' + lang + '\', ' + (!activo) + ')">' +
+        (activo ? 'Desactivar' : 'Activar') + '</button>' +
+      (activo ? '<button class="boton-secundario" style="padding:6px 14px;font-size:0.82rem;" onclick="copiarEnlacePublico(\'' + lang + '\', \'' + slug + '\', this)">🔗 Copiar enlace</button>' : '') +
+    '</div>' +
+
+    '<label class="etiqueta">URL amigable (slug)</label>' +
+    '<input class="campo" id="seo-slug" type="text" value="' + slug + '" ' +
+      'oninput="validarSlugEnVivo(this)" ' +
+      'style="margin-bottom:4px;font-family:\'JetBrains Mono\',monospace;font-size:13px;">' +
+    '<div id="seo-slug-aviso" style="font-size:12px;min-height:18px;margin-bottom:10px;"></div>' +
+
+    '<label class="etiqueta">Título para Google (máx. 600px de ancho real)</label>' +
+    '<input class="campo" id="seo-titulo" type="text" value="' + titulo + '" ' +
+      'oninput="contarPxSEO(this,\'seo-titulo-count\',600,\'20px arial\')" style="margin-bottom:4px;">' +
+    '<div style="text-align:right;font-size:11px;margin-bottom:12px;" id="seo-titulo-count">' + medirPx(datos.meta_title || '', '20px arial') + ' / 600 px</div>' +
+
+    '<label class="etiqueta">Descripción para Google (máx. 960px de ancho real)</label>' +
+    '<textarea class="campo" id="seo-desc" rows="3" ' +
+      'oninput="contarPxSEO(this,\'seo-desc-count\',960,\'13px arial\')" style="margin-bottom:4px;">' + escapar(desc) + '</textarea>' +
+    '<div style="text-align:right;font-size:11px;margin-bottom:16px;" id="seo-desc-count">' + medirPx(desc, '13px arial') + ' / 960 px</div>' +
+
+    '<button class="boton-primario" onclick="guardarSEO(' + rutaId + ', \'' + lang + '\')">💾 Guardar</button> ' +
+    '<button class="boton-secundario" onclick="verSchemaRuta(' + rutaId + ', \'' + lang + '\')">👁️ Ver datos estructurados</button>' +
+    '<div id="schema-ruta-vista" style="margin-top:14px;"></div>';
+}
+
+function validarSlugEnVivo(input) {
+  var aviso = document.getElementById('seo-slug-aviso');
+  if (!aviso) return;
+  var error = validarSlug(input.value.trim());
+  if (error) {
+    aviso.innerHTML = '<span style="color:var(--rojo-error);">⚠️ ' + error + '</span>';
+    input.style.borderColor = 'var(--rojo-error)';
+  } else {
+    aviso.innerHTML = '<span style="color:#2e7d32;">✓ URL válida</span>';
+    input.style.borderColor = '#2e7d32';
+  }
+}
+
+function validarSlug(slug) {
+  if (!slug || slug.trim() === '') return 'El slug no puede estar vacío.';
+  if (slug.length < 5) return 'El slug es demasiado corto (mínimo 5 caracteres).';
+  if (/[^a-z0-9-]/.test(slug)) return 'Solo se permiten letras minúsculas sin tildes, números y guiones normales (-). Sin guiones bajos ni caracteres especiales.';
+  if (slug.includes('_')) return 'Los guiones bajos (_) no están permitidos. Usa guiones normales (-).';
+  if (slug.startsWith('-') || slug.endsWith('-')) return 'El slug no puede empezar ni terminar con un guión.';
+  if (slug.includes('--')) return 'El slug no puede tener guiones dobles (--).';
+  return null;
+}
+
+function guardarSEO(rutaId, lang) {
+  var slugInput = document.getElementById('seo-slug');
+  var slugVal = slugInput ? slugInput.value.trim() : '';
+  var errorSlug = validarSlug(slugVal);
+  var msg = document.getElementById('seo-mensaje-editor');
+
+  if (errorSlug) {
+    msg.innerHTML = '<div class="aviso-error">⚠️ URL no válida: ' + errorSlug + '</div>';
+    if (slugInput) { slugInput.style.borderColor = 'var(--rojo-error)'; slugInput.focus(); }
+    return;
+  }
+  if (slugInput) slugInput.style.borderColor = '';
+
+  var datos = {
+    slug_url:         slugVal,
+    meta_title:       document.getElementById('seo-titulo').value.trim(),
+    meta_description: document.getElementById('seo-desc').value.trim()
+  };
+  fetch('/admin/seo/rutas/' + rutaId + '/idioma/' + lang, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      var pxTitulo = medirPx(datos.meta_title, '20px arial');
+      var pxDesc = medirPx(datos.meta_description, '13px arial');
+      var excede = pxTitulo > 600 || pxDesc > 960;
+
+      // Actualiza la pestaña de este idioma en vivo, sin tener que cerrar y reabrir el editor
+      var tab = document.getElementById('tab-idioma-' + lang);
+      if (tab) {
+        tab.classList.toggle('tab-idioma-rojo', excede);
+        tab.innerHTML = lang.toUpperCase() + (excede ? ' ⚠️' : '');
+      }
+      if (editorSEOCache[rutaId] && editorSEOCache[rutaId][lang]) {
+        editorSEOCache[rutaId][lang].excede = excede;
+      }
+
+      var avisos = [];
+      if (pxTitulo > 600) avisos.push('el título se pasa de 600px (' + pxTitulo + 'px) y Google podría cortarlo');
+      if (pxDesc > 960) avisos.push('la descripción se pasa de 960px (' + pxDesc + 'px) y Google podría cortarla');
+      if (avisos.length) {
+        msg.innerHTML = '<div class="aviso-error">✅ Guardado, pero ' + avisos.join(' y ') + '.</div>';
+      } else {
+        msg.innerHTML = '<div class="aviso-ok">✅ Guardado correctamente</div>';
+      }
+      cargarSEO();
+      setTimeout(function () { msg.innerHTML = ''; }, 4000);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+function toggleActivarSEO(rutaId, lang, activar) {
+  fetch('/admin/seo/rutas/' + rutaId + '/idioma/' + lang + '/activar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activo: activar })
+  }).then(function () {
+    cargarSEO();
+    fetch('/admin/seo/rutas/' + rutaId + '/idioma/' + lang)
+      .then(function (r) { return r.json(); })
+      .then(function (datos) { renderizarCamposSEO(rutaId, lang, datos); });
+  });
+}
+
+function importarSEO() {
+  var archivo = document.getElementById('archivo-importar-seo').files[0];
+  if (!archivo) return;
+  var msg = document.getElementById('mensaje-seo');
+  msg.innerHTML = '<div class="aviso-ok">Subiendo archivo...</div>';
+  var formData = new FormData();
+  formData.append('archivo', archivo);
+  fetch('/admin/seo/importar', { method: 'POST', body: formData })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (respuesta.ok) {
+        var textoErrores = respuesta.errores && respuesta.errores.length
+          ? ' (' + respuesta.errores.length + ' errores)' : '';
+        var html = '<div class="aviso-ok">✅ Importado: ' + respuesta.actualizadas + ' filas actualizadas' + textoErrores + '</div>';
+
+        var avisos = respuesta.avisosPixeles || [];
+        if (avisos.length) {
+          html += '<div class="aviso-error" style="margin-top:8px;">' +
+            '⚠️ ' + avisos.length + ' ficha(s) se pasan del límite de píxeles y conviene revisarlas:' +
+            '<ul style="margin:8px 0 0 18px;padding:0;">' +
+            avisos.map(function (a) {
+              return '<li>' + escapar(a.ruta) + ' (' + a.idioma.toUpperCase() + '): ' + escapar(a.problemas) + '</li>';
+            }).join('') +
+            '</ul></div>';
+        }
+        msg.innerHTML = html;
+        cargarSEO();
+      } else {
+        msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error en la importación') + '</div>';
+      }
+      document.getElementById('archivo-importar-seo').value = '';
+    });
+}
+
+// ─── Editor manual de sitemap.xml y robots.txt ───────────────────────────────
+function abrirEditorArchivo(nombre) {
+  document.getElementById('panel-salud-seo').classList.add('oculto');
+  document.getElementById('panel-redirecciones').classList.add('oculto');
+  document.getElementById('panel-ajustes-globales').classList.add('oculto');
+  document.getElementById('panel-activacion-masiva').classList.add('oculto');
+  document.getElementById('revision-seo-ia').classList.add('oculto');
+  var caja = document.getElementById('editor-archivo-manual');
+  caja.classList.remove('oculto');
+  caja.setAttribute('data-archivo', nombre);
+  caja.innerHTML = '<p style="color:var(--texto-muted)">Cargando ' + nombre + '...</p>';
+  caja.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/admin/site-archivos')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      var info = datos[nombre];
+      var textoMostrado = info.activo ? info.contenido_manual : info.contenido_automatico;
+
+      caja.innerHTML =
+        '<h3 style="margin-top:0">' + (nombre === 'sitemap.xml' ? '🗺️' : '🤖') + ' ' + nombre + '</h3>' +
+        '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:10px;">' +
+        (info.activo
+          ? '🟠 Hay una versión manual activa — esto es lo que ven los buscadores ahora mismo.'
+          : '🟢 Modo automático activo — esto es lo que se genera solo con los datos actuales.') +
+        '</p>' +
+        '<textarea id="contenido-archivo-manual" readonly style="width:100%;min-height:280px;font-family:\'JetBrains Mono\',monospace;font-size:12px;padding:10px;border:1px solid var(--gris-borde);border-radius:8px;background:var(--gris-fondo);color:var(--texto-muted);">' +
+        escapar(textoMostrado) + '</textarea>' +
+        '<div id="mensaje-archivo-manual" style="margin-top:8px;"></div>' +
+        '<div id="botones-archivo-manual" style="display:flex;gap:10px;margin-top:10px;">' +
+        '<button class="boton-primario" onclick="habilitarEdicionArchivo(this)">✏️ Editar</button>' +
+        (info.activo ? '<button class="boton-peligro" onclick="restablecerArchivoAuto(\'' + nombre + '\')">↩️ Volver a automático</button>' : '') +
+        '<button class="boton-secundario" onclick="document.getElementById(\'editor-archivo-manual\').classList.add(\'oculto\')">Cerrar</button>' +
+        '</div>';
+    });
+}
+
+function habilitarEdicionArchivo(botonEditar) {
+  var nombre = document.getElementById('editor-archivo-manual').getAttribute('data-archivo');
+  var textarea = document.getElementById('contenido-archivo-manual');
+  textarea.readOnly = false;
+  textarea.style.background = 'white';
+  textarea.style.color = 'var(--texto-oscuro)';
+  textarea.focus();
+
+  document.getElementById('botones-archivo-manual').innerHTML =
+    '<button class="boton-primario" onclick="guardarArchivoManual(\'' + nombre + '\')">💾 Guardar y activar versión manual</button>' +
+    '<button class="boton-secundario" onclick="abrirEditorArchivo(\'' + nombre + '\')">Cancelar</button>';
+}
+
+function guardarArchivoManual(nombre) {
+  var contenido = document.getElementById('contenido-archivo-manual').value;
+  var msg = document.getElementById('mensaje-archivo-manual');
+  fetch('/admin/site-archivos/' + nombre + '/guardar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contenido: contenido })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Guardado. Esta versión manual ya está activa en ' + nombre + '.</div>';
+      setTimeout(function () { abrirEditorArchivo(nombre); }, 1200);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+function restablecerArchivoAuto(nombre) {
+  fetch('/admin/site-archivos/' + nombre + '/restablecer', { method: 'POST' })
+    .then(function () { abrirEditorArchivo(nombre); });
+}
+
+// ─── Panel de Salud SEO ───────────────────────────────────────────────────────
+var NOMBRES_IDIOMA = {}; // se rellena en tiempo real desde /admin/idiomas
+
+function abrirPanelSalud() {
+  document.getElementById('editor-archivo-manual').classList.add('oculto');
+  document.getElementById('panel-redirecciones').classList.add('oculto');
+  document.getElementById('panel-ajustes-globales').classList.add('oculto');
+  document.getElementById('panel-activacion-masiva').classList.add('oculto');
+  document.getElementById('revision-seo-ia').classList.add('oculto');
+  var panel = document.getElementById('panel-salud-seo');
+  panel.classList.remove('oculto');
+  panel.innerHTML = '<p style="color:var(--texto-muted)">Calculando...</p>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/admin/seo/salud')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      var filas = IDIOMAS_SEO.map(function (lang) {
+        var s = datos[lang];
+        if (!s) return '';
+        return '<tr>' +
+          '<td><strong>' + (NOMBRES_IDIOMA[lang] || lang.toUpperCase()) + '</strong></td>' +
+          '<td style="text-align:center">' + s.activas + ' / ' + s.total + '</td>' +
+          '<td style="text-align:center' + (s.vacios > 0 ? ';color:var(--rojo-error);font-weight:600' : '') + '">' + s.vacios + '</td>' +
+          '<td style="text-align:center' + (s.excedePx > 0 ? ';color:var(--rojo-error);font-weight:600' : '') + '">' + s.excedePx + '</td>' +
+          '<td style="text-align:center' + (s.duplicados > 0 ? ';color:#b8860b;font-weight:600' : '') + '">' + s.duplicados + '</td>' +
+        '</tr>';
+      }).join('');
+
+      panel.innerHTML =
+        '<h3 style="margin-top:0">🩺 Salud SEO</h3>' +
+        '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Una foto del estado actual de cada idioma. Es solo informativo — si ves algo en rojo o ámbar, entra en esa ruta desde la tabla de SEO para corregirlo.</p>' +
+        '<table class="tabla-admin">' +
+        '<thead><tr><th>Idioma</th><th style="text-align:center">Activas</th>' +
+        '<th style="text-align:center">Sin título/desc.</th><th style="text-align:center">Pasadas de píxeles</th>' +
+        '<th style="text-align:center">Títulos duplicados</th></tr></thead>' +
+        '<tbody>' + filas + '</tbody></table>' +
+        '<button class="boton-secundario" style="margin-top:14px;" onclick="document.getElementById(\'panel-salud-seo\').classList.add(\'oculto\')">Cerrar</button>';
+    });
+}
+
+// ─── Panel de Redirecciones 301 ───────────────────────────────────────────────
+function abrirPanelRedirecciones() {
+  document.getElementById('editor-archivo-manual').classList.add('oculto');
+  document.getElementById('panel-salud-seo').classList.add('oculto');
+  document.getElementById('panel-ajustes-globales').classList.add('oculto');
+  document.getElementById('panel-activacion-masiva').classList.add('oculto');
+  document.getElementById('revision-seo-ia').classList.add('oculto');
+  var panel = document.getElementById('panel-redirecciones');
+  panel.classList.remove('oculto');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  cargarRedirecciones();
+}
+
+// ─── Panel de Ajustes globales de SEO ─────────────────────────────────────────
+function abrirPanelAjustesGlobales() {
+  document.getElementById('editor-archivo-manual').classList.add('oculto');
+  document.getElementById('panel-salud-seo').classList.add('oculto');
+  document.getElementById('panel-redirecciones').classList.add('oculto');
+  document.getElementById('panel-activacion-masiva').classList.add('oculto');
+  document.getElementById('revision-seo-ia').classList.add('oculto');
+  var panel = document.getElementById('panel-ajustes-globales');
+  panel.classList.remove('oculto');
+  panel.innerHTML = '<p style="color:var(--texto-muted)">Cargando...</p>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/admin/seo/ajustes-globales')
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      panel.innerHTML =
+        '<h3 style="margin-top:0">⚙️ Ajustes globales de SEO</h3>' +
+        '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:16px;">Cosas que hoy están fijas en el código, para que las puedas cambiar tú mismo sin pedir un nuevo código. Se aplican a todas las páginas de ruta.</p>' +
+
+        '<label class="etiqueta">Nombre de marca</label>' +
+        '<input type="text" id="ajuste-nombre-marca" class="campo" value="' + escapar(datos.nombre_marca || 'Traslados · GC') + '" style="margin-bottom:4px;max-width:340px;">' +
+        '<p style="font-size:11px;color:var(--texto-muted);margin-bottom:16px;">Se usa cuando una ruta no tiene título propio, y en la cabecera/pie de cada página.</p>' +
+
+        '<label class="etiqueta">Imagen de respaldo para WhatsApp/redes</label>' +
+        '<p style="font-size:11px;color:var(--texto-muted);margin-bottom:8px;">Se usa solo en las rutas que todavía no tienen su propia imagen.</p>' +
+        '<div style="display:flex;gap:14px;align-items:center;margin-bottom:18px;">' +
+        '<div style="width:90px;height:48px;border-radius:6px;overflow:hidden;background:var(--charcoal);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+        (datos.imagen_og_defecto
+          ? '<img src="/imagen-og-defecto?t=' + Date.now() + '" style="width:100%;height:100%;object-fit:cover;">'
+          : '<span style="color:white;font-size:10px;opacity:0.6;">sin imagen</span>') +
+        '</div>' +
+        '<input type="file" id="ajuste-imagen-input" accept="image/*" onchange="subirImagenDefecto()">' +
+        (datos.imagen_og_defecto
+          ? '<button class="boton-peligro" style="padding:6px 12px;font-size:0.78rem;" onclick="eliminarImagenDefecto()">🗑️ Quitar</button>'
+          : '') +
+        '<span id="ajuste-imagen-msg" style="font-size:12px;"></span>' +
+        '</div>' +
+
+        '<label class="etiqueta" style="display:flex;align-items:center;gap:8px;cursor:pointer;max-width:300px;">' +
+        '<input type="checkbox" id="ajuste-twitter" ' + (datos.twitter_activo ? 'checked' : '') + ' style="width:16px;height:16px;">' +
+        'Activar etiquetas de Twitter/X' +
+        '</label>' +
+        '<p style="font-size:11px;color:var(--texto-muted);margin-bottom:18px;">Reutiliza el mismo título, descripción e imagen que ya tienes — actívalo cuando uséis Twitter/X de verdad.</p>' +
+
+        '<div id="ajustes-globales-msg" style="margin-bottom:10px;"></div>' +
+        '<button class="boton-primario" onclick="guardarAjustesGlobales()">💾 Guardar</button> ' +
+        '<button class="boton-secundario" onclick="document.getElementById(\'panel-ajustes-globales\').classList.add(\'oculto\')">Cerrar</button>';
+    });
+}
+
+function guardarAjustesGlobales() {
+  var datos = {
+    nombre_marca: document.getElementById('ajuste-nombre-marca').value,
+    twitter_activo: document.getElementById('ajuste-twitter').checked
+  };
+  var msg = document.getElementById('ajustes-globales-msg');
+  fetch('/admin/seo/ajustes-globales', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    msg.innerHTML = respuesta.ok
+      ? '<div class="aviso-ok">✅ Guardado</div>'
+      : '<div class="aviso-error">' + escapar(respuesta.error || 'Error') + '</div>';
+    setTimeout(function () { msg.innerHTML = ''; }, 2500);
+  });
+}
+
+function subirImagenDefecto() {
+  var input = document.getElementById('ajuste-imagen-input');
+  var file = input.files[0];
+  if (!file) return;
+  var msg = document.getElementById('ajuste-imagen-msg');
+  msg.innerHTML = 'Procesando imagen...';
+
+  comprimirImagenOG(file, function (dataUrl) {
+    fetch('/admin/seo/ajustes-globales/imagen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imagen: dataUrl })
+    }).then(function (r) { return r.json(); }).then(function (respuesta) {
+      if (respuesta.ok) {
+        msg.innerHTML = '<span style="color:#2e7d32;">✓ Imagen guardada</span>';
+        setTimeout(abrirPanelAjustesGlobales, 800);
+      } else {
+        msg.innerHTML = '<span style="color:var(--rojo-error);">' + escapar(respuesta.error || 'Error') + '</span>';
+      }
+    });
+  });
+}
+
+function eliminarImagenDefecto() {
+  fetch('/admin/seo/ajustes-globales/imagen/eliminar', { method: 'POST' })
+    .then(abrirPanelAjustesGlobales);
+}
+
+// ─── Activar/desactivar todas las páginas de un idioma de golpe ──────────────
+function abrirPanelActivacionMasiva() {
+  document.getElementById('editor-archivo-manual').classList.add('oculto');
+  document.getElementById('panel-salud-seo').classList.add('oculto');
+  document.getElementById('panel-redirecciones').classList.add('oculto');
+  document.getElementById('panel-ajustes-globales').classList.add('oculto');
+  document.getElementById('revision-seo-ia').classList.add('oculto');
+
+  var panel = document.getElementById('panel-activacion-masiva');
+  panel.classList.remove('oculto');
+  panel.innerHTML =
+    '<h3 style="margin-top:0">✅ Activar/desactivar por idioma</h3>' +
+    '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Activa o desactiva de golpe TODAS las páginas de un idioma, en vez de ruta por ruta. Útil cuando terminas de traducir un idioma entero y quieres publicarlo todo a la vez.</p>' +
+    '<div class="fila-form">' +
+    '<div><label class="etiqueta">Idioma</label>' +
+    '<select id="select-idioma-masivo" class="campo">' +
+    IDIOMAS_SEO.map(function (l) { return '<option value="' + l + '">' + (NOMBRES_IDIOMA[l] || l.toUpperCase()) + '</option>'; }).join('') +
+    '</select></div>' +
+    '<button class="boton-costa" onclick="activarMasivo(true)">✅ Activar todas</button>' +
+    '<button class="boton-peligro" onclick="activarMasivo(false)">⛔ Desactivar todas</button>' +
+    '</div>' +
+    '<div id="mensaje-activacion-masiva" style="margin-top:12px;"></div>' +
+    '<button class="boton-secundario" style="margin-top:10px;" onclick="document.getElementById(\'panel-activacion-masiva\').classList.add(\'oculto\')">Cerrar</button>';
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function activarMasivo(activar) {
+  var lang = document.getElementById('select-idioma-masivo').value;
+  var nombreIdioma = NOMBRES_IDIOMA[lang] || lang.toUpperCase();
+  var confirmacion = confirm(
+    (activar ? 'Vas a ACTIVAR' : 'Vas a DESACTIVAR') + ' todas las páginas en ' + nombreIdioma + '.\n\n' +
+    (activar ? 'Asegúrate de que ya están bien traducidas antes de publicarlas todas.' : 'Dejarán de verse en internet inmediatamente.') +
+    '\n\n¿Continuar?'
+  );
+  if (!confirmacion) return;
+
+  var msg = document.getElementById('mensaje-activacion-masiva');
+  msg.innerHTML = 'Procesando...';
+
+  fetch('/admin/seo/idioma/' + lang + '/activar-todas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activo: activar })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ ' + respuesta.afectadas + ' página(s) en ' + nombreIdioma + ' ' + (activar ? 'activadas' : 'desactivadas') + '.</div>';
+      cargarSEO();
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error') + '</div>';
+    }
+  });
+}
+
+// ─── Traducción con IA del título y descripción de las rutas (SEO) ───────────
+function traducirSEOConIA() {
+  var lang = document.getElementById('select-idioma-ia-seo').value;
+  if (!lang) return;
+  var nombreIdioma = NOMBRES_IDIOMA[lang] || lang.toUpperCase();
+  var msg = document.getElementById('mensaje-seo');
+  msg.innerHTML = '<div class="aviso-ok">🤖 Traduciendo con IA, puede tardar unos segundos...</div>';
+
+  fetch('/admin/seo/traducir-ia/' + lang, { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (!respuesta.ok) {
+        msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al traducir') + '</div>';
         return;
       }
-      cuerpo.innerHTML = pasajeros.map(p => `
-        <tr>
-          <td>${escapar(p.nombre)}</td>
-          <td>${escapar(p.apellido || '')}</td>
-          <td>${escapar(p.email)}</td>
-          <td>${escapar(p.telefono)}</td>
-          <td>${new Date(p.creado_en).toLocaleDateString('es-ES')}</td>
-          <td><span class="etiqueta ${p.activo ? 'aprobado' : 'suspendido'}">${p.activo ? 'activo' : 'desactivado'}</span></td>
-          <td>
-            <button class="${p.activo ? 'peligro' : ''}" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
-              onclick="cambiarActivo(${p.id}, ${!p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
-            <button class="peligro" style="margin-top:0;padding:6px 12px;font-size:0.82rem"
-              onclick="eliminarPasajero(${p.id}, '${escapar(p.nombre).replace(/'/g, "\\'")}')">🗑</button>
-          </td>
-        </tr>
-      `).join('');
-    }
+      if (respuesta.propuestas.length === 0) {
+        msg.innerHTML = '<div class="aviso-ok">✅ Ya estaba todo traducido en ' + nombreIdioma + ' (o falta el texto base en español de alguna ruta).</div>';
+        return;
+      }
+      msg.innerHTML = '';
+      mostrarRevisionSEOIA(lang, nombreIdioma, respuesta.propuestas);
+    })
+    .catch(function () {
+      msg.innerHTML = '<div class="aviso-error">No se pudo conectar con la IA. Inténtalo de nuevo.</div>';
+    });
+}
 
-    async function cambiarActivo(id, activo) {
-      await fetch('/api/admin/pasajeros/' + id + '/activo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activo })
+function mostrarRevisionSEOIA(lang, nombreIdioma, propuestas) {
+  var editor = document.getElementById('revision-seo-ia');
+  editor.classList.remove('oculto');
+
+  var filas = propuestas.map(function (p) {
+    return '<div style="border-bottom:1px solid var(--gris-borde);padding:14px 0;">' +
+      '<div style="font-size:13px;font-weight:600;margin-bottom:6px;">' + escapar(p.origen) + ' → ' + escapar(p.destino) + '</div>' +
+      '<div style="font-size:12px;color:var(--texto-muted);margin-bottom:8px;">🇪🇸 ' + escapar(p.titulo_es) + ' — ' + escapar(p.descripcion_es) + '</div>' +
+      '<label class="etiqueta" style="font-size:11px;">Título sugerido</label>' +
+      '<input class="campo revision-seo-titulo" data-route-id="' + p.route_id + '" type="text" value="' + escapar(p.titulo_sugerido) + '" style="margin-bottom:6px;">' +
+      '<label class="etiqueta" style="font-size:11px;">Descripción sugerida</label>' +
+      '<textarea class="campo revision-seo-desc" data-route-id="' + p.route_id + '" rows="2">' + escapar(p.descripcion_sugerida) + '</textarea>' +
+    '</div>';
+  }).join('');
+
+  editor.innerHTML =
+    '<h2 style="margin-top:0">🤖 Revisión — traducción IA al ' + nombreIdioma + '</h2>' +
+    '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Revisa cada propuesta antes de guardar. El slug (URL) no se toca aquí — eso lo gestionas tú aparte.</p>' +
+    '<div style="max-height:440px;overflow-y:auto;">' + filas + '</div>' +
+    '<div id="revision-seo-ia-msg" style="margin:12px 0;"></div>' +
+    '<button class="boton-primario" onclick="guardarRevisionSEOIA(\'' + lang + '\')">💾 Guardar todas</button> ' +
+    '<button class="boton-secundario" onclick="document.getElementById(\'revision-seo-ia\').classList.add(\'oculto\')">Cancelar</button>';
+
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function guardarRevisionSEOIA(lang) {
+  var titulos = document.querySelectorAll('.revision-seo-titulo');
+  var propuestas = Array.prototype.map.call(titulos, function (input) {
+    var routeId = input.dataset.routeId;
+    var desc = document.querySelector('.revision-seo-desc[data-route-id="' + routeId + '"]');
+    return { route_id: parseInt(routeId, 10), meta_title: input.value, meta_description: desc ? desc.value : '' };
+  });
+
+  var msg = document.getElementById('revision-seo-ia-msg');
+  msg.innerHTML = 'Guardando...';
+
+  fetch('/admin/seo/guardar-lote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lang: lang, propuestas: propuestas })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Guardadas ' + respuesta.guardadas + ' rutas</div>';
+      cargarSEO();
+      setTimeout(function () { document.getElementById('revision-seo-ia').classList.add('oculto'); }, 1200);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+function cargarRedirecciones() {
+  var panel = document.getElementById('panel-redirecciones');
+  panel.innerHTML = '<p style="color:var(--texto-muted)">Cargando...</p>';
+
+  fetch('/admin/redirecciones')
+    .then(function (r) { return r.json(); })
+    .then(function (lista) {
+      var filas = lista.map(function (r) {
+        return '<tr>' +
+          '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;">' + escapar(r.ruta_antigua) + '</td>' +
+          '<td style="text-align:center">→</td>' +
+          '<td style="font-family:\'JetBrains Mono\',monospace;font-size:12px;">' + escapar(r.ruta_nueva) + '</td>' +
+          '<td><button class="boton-peligro" style="padding:4px 10px;font-size:0.78rem;" onclick="eliminarRedireccion(' + r.id + ')">🗑️</button></td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="4" style="color:var(--texto-muted)">No hay redirecciones creadas todavía.</td></tr>';
+
+      panel.innerHTML =
+        '<h3 style="margin-top:0">🔀 Redirecciones 301</h3>' +
+        '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Cuando cambies una URL antigua, añádela aquí para que nadie se quede con un enlace roto.</p>' +
+        '<div class="fila-form" style="margin-bottom:14px;">' +
+        '<div><label class="etiqueta">URL antigua</label><input type="text" id="redir-antigua" class="campo" placeholder="/es/traslado/ruta-vieja"></div>' +
+        '<div><label class="etiqueta">URL nueva</label><input type="text" id="redir-nueva" class="campo" placeholder="/es/traslado/ruta-nueva"></div>' +
+        '<button class="boton-primario" onclick="guardarRedireccion()">Añadir</button>' +
+        '</div>' +
+        '<div id="mensaje-redirecciones" style="margin-bottom:10px;"></div>' +
+        '<table class="tabla-admin"><thead><tr><th>Antigua</th><th></th><th>Nueva</th><th></th></tr></thead>' +
+        '<tbody>' + filas + '</tbody></table>' +
+        '<button class="boton-secundario" style="margin-top:14px;" onclick="document.getElementById(\'panel-redirecciones\').classList.add(\'oculto\')">Cerrar</button>';
+    });
+}
+
+function guardarRedireccion() {
+  var antigua = document.getElementById('redir-antigua').value.trim();
+  var nueva = document.getElementById('redir-nueva').value.trim();
+  var msg = document.getElementById('mensaje-redirecciones');
+  if (!antigua || !nueva) {
+    msg.innerHTML = '<div class="aviso-error">Rellena las dos URLs.</div>';
+    return;
+  }
+  fetch('/admin/redirecciones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ruta_antigua: antigua, ruta_nueva: nueva })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      cargarRedirecciones();
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+function eliminarRedireccion(id) {
+  fetch('/admin/redirecciones/' + id + '/eliminar', { method: 'POST' })
+    .then(function () { cargarRedirecciones(); });
+}
+
+// ─── Idiomas — Textos de la interfaz ──────────────────────────────────────────
+var IDIOMAS_TEXTOS = []; // se rellena en tiempo real desde /admin/idiomas (excluye el idioma base)
+var textosCache = null;
+
+function renderizarCabeceraTextos() {
+  var thead = document.getElementById('thead-textos');
+  if (!thead) return;
+  thead.innerHTML = '<tr><th>Texto</th><th>Módulo</th>' +
+    IDIOMAS_TEXTOS.map(function (l) { return '<th style="text-align:center">' + l.toUpperCase() + '</th>'; }).join('') +
+    '<th>Acción</th></tr>';
+}
+
+function renderizarSelectIA() {
+  var select = document.getElementById('select-idioma-ia');
+  if (!select) return;
+  select.innerHTML = IDIOMAS_TEXTOS.map(function (l) {
+    return '<option value="' + l + '">' + (NOMBRES_IDIOMA[l] || l.toUpperCase()) + '</option>';
+  }).join('');
+}
+
+function cargarTextosInterfaz() {
+  document.getElementById('tabla-textos-cuerpo').innerHTML = '<tr><td colspan="11" style="color:var(--texto-muted)">Cargando...</td></tr>';
+  cargarListaIdiomasDinamica().then(function () {
+    renderizarCabeceraTextos();
+    renderizarSelectIA();
+    return fetch('/admin/textos');
+  }).then(function (r) { return r.json(); }).then(function (datos) {
+    textosCache = datos;
+    renderizarTablaTextos(datos);
+  });
+}
+
+function renderizarTablaTextos(datos) {
+  var cuerpo = document.getElementById('tabla-textos-cuerpo');
+  if (!datos.textos || datos.textos.length === 0) {
+    cuerpo.innerHTML = '<tr><td colspan="11">No hay textos registrados todavía.</td></tr>';
+    return;
+  }
+  cuerpo.innerHTML = datos.textos.map(function (t) {
+    var celdas = IDIOMAS_TEXTOS.map(function (lang) {
+      var ok = t.estado[lang];
+      return '<td style="text-align:center">' + (ok ? '<span style="color:#2e7d32;font-weight:600;">✓</span>' : '<span style="color:var(--rojo-error);">·</span>') + '</td>';
+    }).join('');
+    return '<tr>' +
+      '<td><strong>' + escapar(t.texto_es) + '</strong><br><span style="font-size:11px;color:var(--texto-muted);font-family:\'JetBrains Mono\',monospace;">' + escapar(t.clave) + '</span></td>' +
+      '<td style="font-size:12px;color:var(--texto-muted);">' + escapar(t.modulo) + '</td>' +
+      celdas +
+      '<td><button class="boton-costa" style="padding:6px 10px;font-size:0.8rem" onclick="abrirEditorTexto(' + t.id + ')">✏️ Editar</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function abrirEditorTexto(textoId) {
+  var texto = textosCache && textosCache.textos.find(function (t) { return t.id === textoId; });
+  if (!texto) return;
+
+  var editor = document.getElementById('editor-texto-interfaz');
+  editor.classList.remove('oculto');
+
+  var tabs = IDIOMAS_TEXTOS.map(function (lang, i) {
+    var ok = texto.estado[lang];
+    return '<button class="tab-idioma' + (i === 0 ? ' activo' : '') + (ok ? '' : ' tab-idioma-rojo') + '" ' +
+      'onclick="cambiarIdiomaEditorTexto(' + textoId + ', \'' + lang + '\', this)">' +
+      lang.toUpperCase() + (ok ? '' : ' ⚠️') + '</button>';
+  }).join('');
+
+  editor.innerHTML =
+    '<h2 style="margin-top:0">✏️ ' + escapar(texto.clave) + '</h2>' +
+    '<div style="background:var(--gris-fondo);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;">' +
+    '<strong>Español (original):</strong> ' + escapar(texto.texto_es) + '<br>' +
+    (texto.contexto ? '<span style="color:var(--texto-muted);font-size:12px;"><strong>Contexto:</strong> ' + escapar(texto.contexto) + '</span>' : '') +
+    '</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;">' + tabs + '</div>' +
+    '<div id="texto-campo-editor"></div>' +
+    '<div id="texto-mensaje-editor" style="margin-top:8px;"></div>' +
+    '<button class="boton-secundario" style="margin-top:10px;" onclick="document.getElementById(\'editor-texto-interfaz\').classList.add(\'oculto\')">Cerrar</button>';
+
+  cambiarIdiomaEditorTexto(textoId, IDIOMAS_TEXTOS[0], editor.querySelector('.tab-idioma'));
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cambiarIdiomaEditorTexto(textoId, lang, botonTab) {
+  document.querySelectorAll('#editor-texto-interfaz .tab-idioma').forEach(function (b) { b.classList.remove('activo'); });
+  if (botonTab) botonTab.classList.add('activo');
+
+  var campo = document.getElementById('texto-campo-editor');
+  campo.innerHTML = '<p style="color:var(--texto-muted);font-size:13px;">Cargando...</p>';
+
+  fetch('/admin/textos/' + textoId + '/idioma/' + lang)
+    .then(function (r) { return r.json(); })
+    .then(function (datos) {
+      campo.innerHTML =
+        '<label class="etiqueta">Traducción en ' + lang.toUpperCase() + '</label>' +
+        '<textarea class="campo" id="texto-traduccion" rows="3" placeholder="Todavía sin traducir...">' + escapar(datos.texto || '') + '</textarea>' +
+        '<button class="boton-primario" style="margin-top:10px;" onclick="guardarTraduccionTexto(' + textoId + ', \'' + lang + '\')">💾 Guardar</button>';
+    });
+}
+
+function guardarTraduccionTexto(textoId, lang) {
+  var valor = document.getElementById('texto-traduccion').value;
+  var msg = document.getElementById('texto-mensaje-editor');
+  fetch('/admin/textos/' + textoId + '/idioma/' + lang, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto: valor })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Guardado</div>';
+      cargarTextosInterfaz();
+      setTimeout(function () { msg.innerHTML = ''; }, 2000);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+function importarTextosInterfaz() {
+  var archivo = document.getElementById('archivo-importar-textos').files[0];
+  if (!archivo) return;
+  var msg = document.getElementById('mensaje-textos');
+  msg.innerHTML = '<div class="aviso-ok">Subiendo archivo...</div>';
+  var formData = new FormData();
+  formData.append('archivo', archivo);
+  fetch('/admin/textos/importar', { method: 'POST', body: formData })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (respuesta.ok) {
+        var textoErrores = respuesta.errores && respuesta.errores.length
+          ? ' (' + respuesta.errores.length + ' errores)' : '';
+        msg.innerHTML = '<div class="aviso-ok">✅ Importado: ' + respuesta.actualizadas + ' traducciones actualizadas' + textoErrores + '</div>';
+        cargarTextosInterfaz();
+      } else {
+        msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error en la importación') + '</div>';
+      }
+      document.getElementById('archivo-importar-textos').value = '';
+    });
+}
+
+// ─── Traducción automática con IA ─────────────────────────────────────────────
+// ─── Gestión de idiomas de la web ─────────────────────────────────────────────
+function abrirPanelIdiomas() {
+  var panel = document.getElementById('panel-gestion-idiomas');
+  panel.classList.remove('oculto');
+  panel.innerHTML = '<p style="color:var(--texto-muted)">Cargando...</p>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  fetch('/admin/idiomas').then(function (r) { return r.json(); }).then(function (idiomas) {
+    var filas = idiomas.map(function (idi) {
+      return '<tr>' +
+        '<td><strong>' + escapar(idi.nombre) + '</strong></td>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace;">' + escapar(idi.codigo) + '</td>' +
+        '<td style="font-family:\'JetBrains Mono\',monospace;color:var(--texto-muted);">' + escapar(idi.palabra_traslado) + '</td>' +
+        '<td>' + (idi.es_base
+          ? '<span style="color:var(--texto-muted);font-size:12px;">Idioma base</span>'
+          : '<button class="' + (idi.activo ? 'boton-peligro' : 'boton-costa') + '" style="padding:5px 10px;font-size:0.78rem;" ' +
+            'onclick="toggleIdiomaActivo(\'' + idi.codigo + '\', ' + (!idi.activo) + ')">' +
+            (idi.activo ? 'Desactivar' : 'Activar') + '</button>') +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    panel.innerHTML =
+      '<h3 style="margin-top:0">🌐 Idiomas de la web</h3>' +
+      '<table class="tabla-admin" style="margin-bottom:20px;">' +
+      '<thead><tr><th>Nombre</th><th>Código</th><th>Palabra en la URL</th><th>Acción</th></tr></thead>' +
+      '<tbody>' + filas + '</tbody></table>' +
+
+      '<h3>➕ Añadir idioma nuevo</h3>' +
+      '<p style="font-size:12px;color:var(--texto-muted);margin-bottom:12px;">Al añadirlo, se crean automáticamente las fichas SEO vacías de este idioma en todas las rutas, listas para traducir.</p>' +
+      '<div class="fila-form">' +
+      '<div><label class="etiqueta">Código (2 letras)</label><input type="text" id="nuevo-idioma-codigo" class="campo" placeholder="ru" maxlength="2"></div>' +
+      '<div><label class="etiqueta">Nombre</label><input type="text" id="nuevo-idioma-nombre" class="campo" placeholder="Ruso"></div>' +
+      '<div><label class="etiqueta">Palabra para la URL</label><input type="text" id="nuevo-idioma-palabra" class="campo" placeholder="transfer"></div>' +
+      '<button class="boton-primario" onclick="anadirIdioma()">Añadir</button>' +
+      '</div>' +
+      '<div id="mensaje-nuevo-idioma" style="margin-top:10px;"></div>' +
+      '<button class="boton-secundario" style="margin-top:16px;" onclick="document.getElementById(\'panel-gestion-idiomas\').classList.add(\'oculto\')">Cerrar</button>';
+  });
+}
+
+function toggleIdiomaActivo(codigo, activar) {
+  fetch('/admin/idiomas/' + codigo + '/activo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activo: activar })
+  }).then(function () { abrirPanelIdiomas(); });
+}
+
+function anadirIdioma() {
+  var codigo = document.getElementById('nuevo-idioma-codigo').value.trim().toLowerCase();
+  var nombre = document.getElementById('nuevo-idioma-nombre').value.trim();
+  var palabra = document.getElementById('nuevo-idioma-palabra').value.trim().toLowerCase();
+  var msg = document.getElementById('mensaje-nuevo-idioma');
+
+  fetch('/admin/idiomas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo: codigo, nombre: nombre, palabra_traslado: palabra })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Idioma añadido. Fichas SEO preparadas en ' + respuesta.rutasPreparadas + ' ruta(s). Recuerda: las tablas de SEO e Idiomas aún no muestran este idioma como columna — eso llega en el siguiente paso.</div>';
+      abrirPanelIdiomas();
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al añadir') + '</div>';
+    }
+  });
+}
+
+function traducirConIA() {
+  var lang = document.getElementById('select-idioma-ia').value;
+  var msg = document.getElementById('mensaje-textos');
+  msg.innerHTML = '<div class="aviso-ok">🤖 Traduciendo con IA, puede tardar unos segundos...</div>';
+
+  fetch('/admin/textos/traducir-ia/' + lang, { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (respuesta) {
+      if (!respuesta.ok) {
+        msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al traducir') + '</div>';
+        return;
+      }
+      if (respuesta.propuestas.length === 0) {
+        msg.innerHTML = '<div class="aviso-ok">✅ Ya estaba todo traducido en ' + lang.toUpperCase() + '.</div>';
+        return;
+      }
+      msg.innerHTML = '';
+      mostrarRevisionIA(lang, respuesta.propuestas);
+    })
+    .catch(function () {
+      msg.innerHTML = '<div class="aviso-error">No se pudo conectar con la IA. Inténtalo de nuevo.</div>';
+    });
+}
+
+function mostrarRevisionIA(lang, propuestas) {
+  var editor = document.getElementById('editor-texto-interfaz');
+  editor.classList.remove('oculto');
+
+  var filas = propuestas.map(function (p) {
+    return '<div style="border-bottom:1px solid var(--gris-borde);padding:12px 0;">' +
+      '<div style="font-size:12px;color:var(--texto-muted);margin-bottom:4px;"><strong>' + escapar(p.clave) + '</strong>' +
+      (p.contexto ? ' — ' + escapar(p.contexto) : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--texto-muted);margin-bottom:6px;">🇪🇸 ' + escapar(p.texto_es) + '</div>' +
+      '<textarea class="campo revision-ia-texto" data-texto-id="' + p.texto_id + '" rows="2" style="width:100%;">' + escapar(p.sugerencia) + '</textarea>' +
+    '</div>';
+  }).join('');
+
+  editor.innerHTML =
+    '<h2 style="margin-top:0">🤖 Revisión — traducción IA al ' + lang.toUpperCase() + '</h2>' +
+    '<p style="font-size:13px;color:var(--texto-muted);margin-bottom:14px;">Revisa cada propuesta antes de guardar. Puedes editar cualquier texto antes de confirmar.</p>' +
+    '<div style="max-height:400px;overflow-y:auto;">' + filas + '</div>' +
+    '<div id="revision-ia-msg" style="margin:12px 0;"></div>' +
+    '<button class="boton-primario" onclick="guardarRevisionIA(\'' + lang + '\')">💾 Guardar todas</button> ' +
+    '<button class="boton-secundario" onclick="document.getElementById(\'editor-texto-interfaz\').classList.add(\'oculto\')">Cancelar</button>';
+
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function guardarRevisionIA(lang) {
+  var textareas = document.querySelectorAll('.revision-ia-texto');
+  var traducciones = Array.prototype.map.call(textareas, function (ta) {
+    return { texto_id: parseInt(ta.dataset.textoId, 10), texto: ta.value };
+  });
+  var msg = document.getElementById('revision-ia-msg');
+  msg.innerHTML = 'Guardando...';
+
+  fetch('/admin/textos/guardar-lote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lang: lang, traducciones: traducciones })
+  }).then(function (r) { return r.json(); }).then(function (respuesta) {
+    if (respuesta.ok) {
+      msg.innerHTML = '<div class="aviso-ok">✅ Guardadas ' + respuesta.guardadas + ' traducciones</div>';
+      cargarTextosInterfaz();
+      setTimeout(function () { document.getElementById('editor-texto-interfaz').classList.add('oculto'); }, 1200);
+    } else {
+      msg.innerHTML = '<div class="aviso-error">' + escapar(respuesta.error || 'Error al guardar') + '</div>';
+    }
+  });
+}
+
+// ─── Calculador de tarifas ────────────────────────────────────────────────────
+var mapaCalc = null;
+var marcadorOrigen = null;
+var marcadorDestino = null;
+var lineaRuta = null;
+var coordOrigen = null;
+var coordDestino = null;
+var timerBusqueda = null;
+
+function iniciarCalculador() {
+  if (!window.L) {
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(link);
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    script.onload = function () { inicializarMapa(); cargarTarifario(); };
+    document.head.appendChild(script);
+  } else {
+    if (!mapaCalc) inicializarMapa();
+    else mapaCalc.invalidateSize();
+    cargarTarifario();
+  }
+}
+
+function inicializarMapa() {
+  mapaCalc = L.map('mapa-calculador', { zoomControl: true }).setView([27.9202, -15.5474], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 18
+  }).addTo(mapaCalc);
+}
+
+function reiniciarCalculador() {
+  coordOrigen = null;
+  coordDestino = null;
+  if (marcadorOrigen) { marcadorOrigen.remove(); marcadorOrigen = null; }
+  if (marcadorDestino) { marcadorDestino.remove(); marcadorDestino = null; }
+  if (lineaRuta) { lineaRuta.remove(); lineaRuta = null; }
+  document.getElementById('calc-origen').value = '';
+  document.getElementById('calc-destino').value = '';
+  document.getElementById('label-origen').textContent = 'Sin fijar';
+  document.getElementById('label-destino').textContent = 'Sin fijar';
+  document.getElementById('sugerencias-origen').innerHTML = '';
+  document.getElementById('sugerencias-destino').innerHTML = '';
+  document.getElementById('resultado-calculo').style.display = 'none';
+  mapaCalc.setView([27.9202, -15.5474], 11);
+}
+
+// Búsqueda de texto con Nominatim — el mapa salta al lugar seleccionado
+function buscarLugar(tipo) {
+  clearTimeout(timerBusqueda);
+  var texto = document.getElementById('calc-' + tipo).value.trim();
+  if (texto.length < 3) {
+    document.getElementById('sugerencias-' + tipo).innerHTML = '';
+    return;
+  }
+  timerBusqueda = setTimeout(function () {
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' +
+      encodeURIComponent(texto + ' Gran Canaria') +
+      '&viewbox=-16.1,27.6,-15.2,28.2&bounded=0&accept-language=es')
+      .then(function (r) { return r.json(); })
+      .then(function (resultados) {
+        if (!resultados.length) {
+          document.getElementById('sugerencias-' + tipo).innerHTML = '';
+          return;
+        }
+        var lista = resultados.map(function (r) {
+          var nombre = r.display_name.split(',').slice(0, 2).join(',');
+          return '<div onclick="seleccionarSugerencia(\'' + tipo + '\',' + r.lat + ',' + r.lon + ',\'' + nombre.replace(/'/g, "\\'") + '\')" ' +
+            'style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--gris-borde);font-size:13px;" ' +
+            'onmouseover="this.style.background=\'var(--gris-fondo)\'" onmouseout="this.style.background=\'\'">' +
+            escapar(nombre) + '</div>';
+        }).join('');
+        document.getElementById('sugerencias-' + tipo).innerHTML =
+          '<div style="background:white;border:1px solid var(--gris-borde);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);">' + lista + '</div>';
       });
-      await cargarPasajeros();
-    }
+  }, 400);
+}
 
-    (async function () {
-      const r = await fetch('/api/sesion');
-      const s = await r.json();
-      if (s.rol === 'admin') cargarPanel();
-    })();
-  </script>
+// Al seleccionar una sugerencia, el mapa salta al lugar — luego el usuario
+// puede afinar moviendo el mapa y fijando el pin
+function seleccionarSugerencia(tipo, lat, lon, nombre) {
+  document.getElementById('calc-' + tipo).value = nombre;
+  document.getElementById('sugerencias-' + tipo).innerHTML = '';
+  mapaCalc.setView([parseFloat(lat), parseFloat(lon)], 15);
+}
+
+// Fija el punto exacto tomando el centro actual del mapa (la punta del pin)
+function fijarPunto(tipo) {
+  var centro = mapaCalc.getCenter();
+  var latlng = [centro.lat, centro.lng];
+  var color = tipo === 'origen' ? '#2e7d32' : '#c0392b';
+
+  var icono = L.divIcon({
+    html: '<svg width="28" height="42" viewBox="0 0 32 48" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M16 0C7.163 0 0 7.163 0 16C0 28 16 48 16 48C16 48 32 28 32 16C32 7.163 24.837 0 16 0Z" fill="' + color + '"/>' +
+      '<circle cx="16" cy="16" r="7" fill="white"/></svg>',
+    iconSize: [28, 42], iconAnchor: [14, 42]
+  });
+
+  var nombre = document.getElementById('calc-' + tipo).value || ('(' + centro.lat.toFixed(4) + ', ' + centro.lng.toFixed(4) + ')');
+
+  if (tipo === 'origen') {
+    coordOrigen = latlng;
+    if (marcadorOrigen) marcadorOrigen.remove();
+    marcadorOrigen = L.marker(latlng, { icon: icono }).addTo(mapaCalc).bindPopup('Origen: ' + nombre);
+    document.getElementById('label-origen').textContent = '✓ ' + nombre;
+  } else {
+    coordDestino = latlng;
+    if (marcadorDestino) marcadorDestino.remove();
+    marcadorDestino = L.marker(latlng, { icon: icono }).addTo(mapaCalc).bindPopup('Destino: ' + nombre);
+    document.getElementById('label-destino').textContent = '✓ ' + nombre;
+  }
+
+  if (coordOrigen && coordDestino) {
+    mapaCalc.fitBounds([coordOrigen, coordDestino], { padding: [50, 50] });
+  }
+}
+
+function calcularRuta() {
+  if (!coordOrigen || !coordDestino) {
+    alert('Fija primero el origen y el destino en el mapa.');
+    return;
+  }
+  var url = 'https://router.project-osrm.org/route/v1/driving/' +
+    coordOrigen[1] + ',' + coordOrigen[0] + ';' +
+    coordDestino[1] + ',' + coordDestino[0] +
+    '?overview=full&geometries=geojson';
+
+  fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+    if (!data.routes || !data.routes.length) {
+      alert('No se pudo calcular la ruta entre esos puntos.');
+      return;
+    }
+    var ruta = data.routes[0];
+    var km = (ruta.distance / 1000).toFixed(2);
+
+    if (lineaRuta) lineaRuta.remove();
+    lineaRuta = L.geoJSON(ruta.geometry, {
+      style: { color: '#c0392b', weight: 4, opacity: 0.75, dashArray: '8,4' }
+    }).addTo(mapaCalc);
+    mapaCalc.fitBounds(lineaRuta.getBounds(), { padding: [40, 40] });
+
+    var conSupl = document.getElementById('calc-suplemento').value === '1';
+    fetch('/admin/tarifario/calcular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ km: parseFloat(km), con_suplemento: conSupl })
+    }).then(function (r) { return r.json(); }).then(function (calc) {
+      var bd = parseFloat(document.getElementById('tarifa-bajada').value);
+      var pKm = parseFloat(document.getElementById('tarifa-km').value);
+      var supl = parseFloat(document.getElementById('tarifa-suplemento').value);
+      var formula = bd.toFixed(2) + '€ (bajada) + ((' + km + 'km − 1) × ' + pKm.toFixed(2) + '€/km)' +
+        (conSupl ? ' + ' + supl.toFixed(2) + '€ (aeropuerto/puerto)' : '');
+      document.getElementById('res-km').textContent = km + ' km';
+      document.getElementById('res-precio').textContent = calc.precio + ' €';
+      document.getElementById('res-formula').textContent = formula;
+      document.getElementById('resultado-calculo').style.display = 'block';
+    });
+  }).catch(function () {
+    alert('Error al calcular la ruta. Comprueba la conexión.');
+  });
+}
+
+function cargarTarifario() {
+  fetch('/admin/tarifario').then(function (r) { return r.json(); }).then(function (t) {
+    document.getElementById('tarifa-bajada').value = t.bajada_bandera;
+    document.getElementById('tarifa-km').value = t.precio_km_diurno;
+    document.getElementById('tarifa-suplemento').value = t.suplemento_aeropuerto;
+  });
+}
+
+function guardarTarifario() {
+  fetch('/admin/tarifario', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bajada_bandera: document.getElementById('tarifa-bajada').value,
+      precio_km_diurno: document.getElementById('tarifa-km').value,
+      suplemento_aeropuerto: document.getElementById('tarifa-suplemento').value
+    })
+  }).then(function (r) { return r.json(); }).then(function (resp) {
+    var msg = document.getElementById('tarifa-msg');
+    msg.innerHTML = resp.ok ? '<span style="color:#2e7d32;">✓ Guardado</span>' : '<span style="color:var(--rojo-error);">Error</span>';
+    setTimeout(function () { msg.innerHTML = ''; }, 2000);
+  });
+}
+
+// ─── Extras ───────────────────────────────────────────────────────────────────
+// ─── Destinos ─────────────────────────────────────────────────────────────────
+function cargarDestinos() {
+  fetch('/admin/destinos')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var cuerpo = document.getElementById('tabla-destinos');
+      if (!data.destinos || data.destinos.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;">No hay destinos todavía.</td></tr>';
+        return;
+      }
+      cuerpo.innerHTML = data.destinos.map(function(d) {
+        return '<tr>' +
+          '<td id="nombre-destino-' + d.id + '">' + d.nombre + '</td>' +
+          '<td>' +
+            '<span style="color:' + (d.activo ? '#7dbf8e' : '#aaa') + '">' +
+              (d.activo ? '✔ Activo' : '✗ Inactivo') +
+            '</span>' +
+          '</td>' +
+          '<td style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+            '<button class="boton-costa" style="font-size:0.8rem;padding:0.3rem 0.7rem;" onclick="editarDestino(' + d.id + ', \'' + d.nombre.replace(/'/g, "\\'") + '\')">✏ Editar</button>' +
+            '<button class="' + (d.activo ? 'boton-peligro' : 'boton-costa') + '" style="font-size:0.8rem;padding:0.3rem 0.7rem;" onclick="toggleDestinoActivo(' + d.id + ', ' + !d.activo + ')">' +
+              (d.activo ? '⏸ Desactivar' : '▶ Activar') +
+            '</button>' +
+            '<button class="boton-peligro" style="font-size:0.8rem;padding:0.3rem 0.7rem;" onclick="eliminarDestino(' + d.id + ', \'' + d.nombre.replace(/'/g, "\\'") + '\')">🗑 Eliminar</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    })
+    .catch(function() {
+      document.getElementById('tabla-destinos').innerHTML =
+        '<tr><td colspan="3" style="color:#e07b5a;">Error al cargar destinos.</td></tr>';
+    });
+}
+
+function mostrarErrorDestinos(msg) {
+  var el = document.getElementById('error-destinos');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function crearDestino() {
+  var nombre = document.getElementById('nuevo-destino-nombre').value.trim();
+  mostrarErrorDestinos('');
+  if (!nombre) { mostrarErrorDestinos('Escribe un nombre para el destino.'); return; }
+  fetch('/admin/destinos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: nombre })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { mostrarErrorDestinos(data.error); return; }
+      document.getElementById('nuevo-destino-nombre').value = '';
+      cargarDestinos();
+    });
+}
+
+function editarDestino(id, nombreActual) {
+  var nuevoNombre = prompt('Editar destino:', nombreActual);
+  if (nuevoNombre === null) return;
+  nuevoNombre = nuevoNombre.trim();
+  if (!nuevoNombre) { alert('El nombre no puede estar vacío.'); return; }
+  fetch('/admin/destinos/' + id + '/editar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: nuevoNombre })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert(data.error); return; }
+      cargarDestinos();
+    });
+}
+
+function toggleDestinoActivo(id, nuevoEstado) {
+  fetch('/admin/destinos/' + id + '/activo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activo: nuevoEstado })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function() { cargarDestinos(); });
+}
+
+function eliminarDestino(id, nombre) {
+  if (!confirm('¿Eliminar el destino "' + nombre + '"? Esta acción no se puede deshacer.')) return;
+  fetch('/admin/destinos/' + id + '/eliminar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert(data.error); return; }
+      cargarDestinos();
+    });
+}
+
+var extrasCache = [];
+var extraEditandoId = null;
+
+function cargarExtras() {
+  fetch('/admin/extras')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      extrasCache = data.extras;
+      var tbody = document.getElementById('tabla-extras');
+      if (!extrasCache.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--texto-muted);padding:20px;">No hay extras definidos todavía.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = extrasCache.map(function (ex) {
+        return '<tr>' +
+          '<td>' + ex.nombre + '</td>' +
+          '<td>' + Number(ex.precio).toFixed(2) + ' €</td>' +
+          '<td><span class="' + (ex.activo ? 'insignia-ok' : 'insignia-suspendido') + '">' + (ex.activo ? 'Activo' : 'Inactivo') + '</span></td>' +
+          '<td>' +
+            '<button class="boton-costa" style="font-size:12px;padding:4px 10px;margin-right:6px;" onclick="abrirFormularioExtra(' + ex.id + ')">✏️ Editar</button>' +
+            '<button class="boton-secundario" style="font-size:12px;padding:4px 10px;margin-right:6px;" onclick="toggleActivoExtra(' + ex.id + ',' + ex.activo + ')">' + (ex.activo ? '⏸ Desactivar' : '▶ Activar') + '</button>' +
+            '<button class="boton-peligro" style="font-size:12px;padding:4px 10px;" onclick="eliminarExtra(' + ex.id + ')">🗑️</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    });
+}
+
+function abrirFormularioExtra(id) {
+  extraEditandoId = id;
+  document.getElementById('extra-msg').textContent = '';
+  if (id === null) {
+    document.getElementById('modal-extra-titulo').textContent = 'Nuevo extra';
+    document.getElementById('extra-nombre').value = '';
+    document.getElementById('extra-precio').value = '';
+  } else {
+    var ex = extrasCache.find(function (e) { return e.id === id; });
+    document.getElementById('modal-extra-titulo').textContent = 'Editar extra';
+    document.getElementById('extra-nombre').value = ex.nombre;
+    document.getElementById('extra-precio').value = ex.precio;
+  }
+  document.getElementById('modal-extra').classList.remove('oculto');
+}
+
+function cerrarModalExtra() {
+  document.getElementById('modal-extra').classList.add('oculto');
+  extraEditandoId = null;
+}
+
+function guardarExtra() {
+  var nombre = document.getElementById('extra-nombre').value.trim();
+  var precio = parseFloat(document.getElementById('extra-precio').value);
+  var msg = document.getElementById('extra-msg');
+  if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; return; }
+  if (isNaN(precio) || precio < 0) { msg.textContent = 'El precio debe ser un número positivo.'; return; }
+  var url = extraEditandoId ? '/admin/extras/' + extraEditandoId + '/editar' : '/admin/extras';
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: nombre, precio: precio })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (d.ok) {
+      cerrarModalExtra();
+      cargarExtras();
+    } else {
+      msg.textContent = d.error || 'Error al guardar.';
+    }
+  });
+}
+
+function toggleActivoExtra(id, activo) {
+  fetch('/admin/extras/' + id + '/activo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activo: !activo })
+  }).then(function () { cargarExtras(); });
+}
+
+function eliminarExtra(id) {
+  if (!confirm('¿Eliminar este extra? Esta acción no se puede deshacer.')) return;
+  fetch('/admin/extras/' + id + '/eliminar', { method: 'POST' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        cargarExtras();
+      } else {
+        alert(d.error || 'No se pudo eliminar.');
+      }
+    });
+}
+
+comprobarSesion();
+</script>
+
 </body>
 </html>
